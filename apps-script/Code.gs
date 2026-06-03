@@ -1,7 +1,10 @@
 const SPREADSHEET_ID = "";
+const DEFAULT_PASSWORD = "password";
+const TOKEN_TTL_DAYS = 14;
 
 const TABLES = {
-  Users: ["id", "name", "role", "territory", "managerId"],
+  Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status"],
+  AuthTokens: ["token", "userId", "createdAt", "expiresAt"],
   Customers: ["id", "farmName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "farmType", "birdType", "capacity", "stock", "pens", "stage", "feedConsumption", "feedBrand", "frequency", "supplier", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt"],
   BirdDetails: ["id", "customerId", "birdType", "breed", "stage", "quantity", "pen", "age", "mortality", "feed", "notes"],
   Visits: ["id", "customerId", "date", "time", "gps", "type", "personMet", "purpose", "summary", "observation", "currentFeed", "competitor", "interest", "nextStep", "followupDate", "notes", "createdBy", "updatedAt"],
@@ -12,38 +15,60 @@ const TABLES = {
   AuditLogs: ["id", "customerId", "action", "user", "date"]
 };
 
+const DEFAULT_USERS = [
+  { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active" },
+  { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active" },
+  { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active" },
+  { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active" },
+  { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active" },
+  { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active" }
+];
+
 function doGet(e) {
-  const action = (e.parameter.action || "load").toLowerCase();
+  const action = (e.parameter.action || "ping").toLowerCase();
   try {
     if (action === "setup") {
       ensureSheets_();
-      return json_({ ok: true, message: "Sheets ready" });
+      seedUsersIfEmpty_();
+      return json_({ ok: true, message: "Sheets ready. Default password is: " + DEFAULT_PASSWORD });
     }
-    if (action === "ping") {
-      return json_({ ok: true, message: "FarmLink backend online" });
-    }
-    return json_({ ok: true, data: loadAll_() });
+    return json_({ ok: true, message: "FarmLink backend online" });
   } catch (error) {
-    return json_({ ok: false, error: String(error && error.message ? error.message : error) });
+    return json_({ ok: false, error: errorMessage_(error) });
   }
 }
 
 function doPost(e) {
   try {
     const body = JSON.parse(e.postData && e.postData.contents ? e.postData.contents : "{}");
+    ensureSheets_();
+
+    if (body.action === "login") {
+      return json_(login_(body.email, body.password));
+    }
+
+    const user = requireUser_(body.token);
+    if (body.action === "load") {
+      return json_({ ok: true, user: sanitizeUser_(user), data: loadScoped_(user) });
+    }
     if (body.action === "saveAll") {
       const lock = LockService.getScriptLock();
       lock.waitLock(20000);
       try {
-        saveAll_(body.data || {});
+        saveScoped_(body.data || {}, user);
       } finally {
         lock.releaseLock();
       }
-      return json_({ ok: true, savedAt: new Date().toISOString() });
+      return json_({ ok: true, savedAt: new Date().toISOString(), data: loadScoped_(user) });
     }
+    if (body.action === "logout") {
+      removeToken_(body.token);
+      return json_({ ok: true });
+    }
+
     return json_({ ok: false, error: "Unknown action" });
   } catch (error) {
-    return json_({ ok: false, error: String(error && error.message ? error.message : error) });
+    return json_({ ok: false, error: errorMessage_(error) });
   }
 }
 
@@ -51,48 +76,212 @@ function doOptions() {
   return json_({ ok: true });
 }
 
-function loadAll_() {
-  ensureSheets_();
-  const sales = readTable_("Sales");
-  const saleItems = readTable_("SaleItems");
-  const itemsBySale = saleItems.reduce((groups, item) => {
-    const saleId = item.saleId || "";
-    if (!groups[saleId]) groups[saleId] = [];
-    delete item.saleId;
-    groups[saleId].push(item);
-    return groups;
-  }, {});
+function login_(email, password) {
+  seedUsersIfEmpty_();
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const user = readTable_("Users").find((row) => String(row.email || "").trim().toLowerCase() === cleanEmail);
+  if (!user || String(user.status || "Active").toLowerCase() !== "active") {
+    throw new Error("Invalid email or inactive account");
+  }
+  if (!user.passwordHash || user.passwordHash !== hashPassword_(password)) {
+    throw new Error("Invalid email or password");
+  }
+
+  const token = createToken_(user.id);
+  return {
+    ok: true,
+    token,
+    user: sanitizeUser_(user),
+    data: loadScoped_(user)
+  };
+}
+
+function loadScoped_(user) {
+  const all = loadAllRaw_();
+  const users = all.users;
+  const allowedCanvasserIds = allowedCanvasserIds_(user, users);
+  const allowedCustomerIds = new Set(all.customers.filter((customer) => allowedCanvasserIds.includes(customer.ownerId)).map((customer) => customer.id));
+  const allowedSaleIds = new Set(all.sales.filter((sale) => allowedCustomerIds.has(sale.customerId)).map((sale) => sale.id));
 
   return {
-    currentUser: "Ada Okafor",
+    currentUser: user.name,
+    users: scopedUsers_(user, users).map(sanitizeUser_),
+    customers: all.customers.filter((customer) => allowedCustomerIds.has(customer.id)),
+    birdDetails: all.birdDetails.filter((row) => allowedCustomerIds.has(row.customerId)),
+    visits: all.visits.filter((row) => allowedCustomerIds.has(row.customerId)),
+    followups: all.followups.filter((row) => allowedCustomerIds.has(row.customerId)),
+    sales: all.sales
+      .filter((row) => allowedCustomerIds.has(row.customerId))
+      .map((sale) => ({ ...sale, items: all.saleItems.filter((item) => item.saleId === sale.id).map(stripSaleId_) })),
+    complaints: all.complaints.filter((row) => allowedCustomerIds.has(row.customerId)),
+    auditLogs: all.auditLogs.filter((row) => allowedCustomerIds.has(row.customerId))
+  };
+}
+
+function saveScoped_(data, user) {
+  const all = loadAllRaw_();
+  const users = all.users;
+  const allowedCanvasserIds = allowedCanvasserIds_(user, users);
+  const canAccessCustomer = (customer) => allowedCanvasserIds.includes(customer.ownerId);
+
+  const incomingCustomers = data.customers || [];
+  const incomingCustomerIds = new Set(incomingCustomers.filter(canAccessCustomer).map((customer) => customer.id));
+  const existingAccessibleCustomerIds = new Set(all.customers.filter(canAccessCustomer).map((customer) => customer.id));
+  const allowedCustomerIds = new Set([...incomingCustomerIds, ...existingAccessibleCustomerIds]);
+
+  const customers = mergeScopedRows_(all.customers, incomingCustomers, canAccessCustomer);
+  const birdDetails = mergeScopedRows_(all.birdDetails, data.birdDetails || [], (row) => allowedCustomerIds.has(row.customerId));
+  const visits = mergeScopedRows_(all.visits, data.visits || [], (row) => allowedCustomerIds.has(row.customerId));
+  const followups = mergeScopedRows_(all.followups, data.followups || [], (row) => allowedCustomerIds.has(row.customerId));
+  const complaints = mergeScopedRows_(all.complaints, data.complaints || [], (row) => allowedCustomerIds.has(row.customerId));
+  const auditLogs = mergeScopedRows_(all.auditLogs, data.auditLogs || [], (row) => allowedCustomerIds.has(row.customerId));
+
+  const incomingSales = data.sales || [];
+  const sales = mergeScopedRows_(all.sales, incomingSales.map(stripItems_), (sale) => allowedCustomerIds.has(sale.customerId));
+  const accessibleSaleIds = new Set(sales.filter((sale) => allowedCustomerIds.has(sale.customerId)).map((sale) => sale.id));
+  const incomingSaleItems = incomingSales.flatMap((sale) => (sale.items || []).map((item) => ({ ...item, saleId: sale.id })));
+  const saleItems = mergeScopedRows_(all.saleItems, incomingSaleItems, (item) => accessibleSaleIds.has(item.saleId));
+
+  writeTable_("Customers", customers);
+  writeTable_("BirdDetails", birdDetails);
+  writeTable_("Visits", visits);
+  writeTable_("Followups", followups);
+  writeTable_("Sales", sales);
+  writeTable_("SaleItems", saleItems);
+  writeTable_("Complaints", complaints);
+  writeTable_("AuditLogs", auditLogs);
+}
+
+function loadAllRaw_() {
+  ensureSheets_();
+  return {
     users: readTable_("Users"),
     customers: readTable_("Customers"),
     birdDetails: readTable_("BirdDetails"),
     visits: readTable_("Visits"),
     followups: readTable_("Followups"),
-    sales: sales.map((sale) => ({ ...sale, items: itemsBySale[sale.id] || [] })),
+    sales: readTable_("Sales"),
+    saleItems: readTable_("SaleItems"),
     complaints: readTable_("Complaints"),
     auditLogs: readTable_("AuditLogs")
   };
 }
 
-function saveAll_(data) {
-  ensureSheets_();
-  writeTable_("Users", data.users || []);
-  writeTable_("Customers", data.customers || []);
-  writeTable_("BirdDetails", data.birdDetails || []);
-  writeTable_("Visits", data.visits || []);
-  writeTable_("Followups", data.followups || []);
-  writeTable_("Complaints", data.complaints || []);
-  writeTable_("AuditLogs", data.auditLogs || []);
+function allowedCanvasserIds_(user, users) {
+  const role = String(user.role || "").toLowerCase();
+  if (role.includes("admin")) {
+    return users.filter((row) => row.role === "Canvasser").map((row) => row.id);
+  }
+  if (role.includes("manager")) {
+    return users.filter((row) => row.role === "Canvasser" && row.managerId === user.id).map((row) => row.id);
+  }
+  return [user.id];
+}
 
-  const sales = data.sales || [];
-  writeTable_("Sales", sales.map((sale) => {
-    const clone = { ...sale };
-    delete clone.items;
-    return clone;
-  }));
-  writeTable_("SaleItems", sales.flatMap((sale) => (sale.items || []).map((item) => ({ ...item, saleId: sale.id }))));
+function scopedUsers_(user, users) {
+  const role = String(user.role || "").toLowerCase();
+  if (role.includes("admin")) return users;
+  if (role.includes("manager")) {
+    return users.filter((row) => row.id === user.id || row.managerId === user.id);
+  }
+  return users.filter((row) => row.id === user.id || row.id === user.managerId);
+}
+
+function mergeScopedRows_(existingRows, incomingRows, canWrite) {
+  const incomingById = incomingRows.reduce((map, row) => {
+    if (row.id && canWrite(row)) map[row.id] = row;
+    return map;
+  }, {});
+  const nextRows = existingRows
+    .filter((row) => !canWrite(row))
+    .concat(Object.values(incomingById));
+  return nextRows;
+}
+
+function stripItems_(sale) {
+  const clone = { ...sale };
+  delete clone.items;
+  return clone;
+}
+
+function stripSaleId_(item) {
+  const clone = { ...item };
+  delete clone.saleId;
+  return clone;
+}
+
+function sanitizeUser_(user) {
+  const clone = { ...user };
+  delete clone.passwordHash;
+  return clone;
+}
+
+function requireUser_(token) {
+  const cleanToken = String(token || "").trim();
+  if (!cleanToken) throw new Error("Missing login token");
+  const now = new Date();
+  const tokenRow = readTable_("AuthTokens").find((row) => row.token === cleanToken && new Date(row.expiresAt) > now);
+  if (!tokenRow) throw new Error("Login expired");
+  const user = readTable_("Users").find((row) => row.id === tokenRow.userId);
+  if (!user || String(user.status || "Active").toLowerCase() !== "active") throw new Error("User account unavailable");
+  return user;
+}
+
+function createToken_(userId) {
+  const token = Utilities.getUuid() + Utilities.getUuid().replace(/-/g, "");
+  const now = new Date();
+  const expires = new Date(now.getTime() + TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000);
+  const tokens = readTable_("AuthTokens").filter((row) => row.userId !== userId && new Date(row.expiresAt) > now);
+  tokens.push({ token, userId, createdAt: now.toISOString(), expiresAt: expires.toISOString() });
+  writeTable_("AuthTokens", tokens);
+  return token;
+}
+
+function removeToken_(token) {
+  writeTable_("AuthTokens", readTable_("AuthTokens").filter((row) => row.token !== token));
+}
+
+function seedUsersIfEmpty_() {
+  ensureSheets_();
+  if (readTable_("Users").length) return;
+  writeTable_("Users", DEFAULT_USERS.map((user) => ({ ...user, passwordHash: hashPassword_(DEFAULT_PASSWORD) })));
+}
+
+function setUserPassword(email, newPassword) {
+  ensureSheets_();
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const users = readTable_("Users");
+  const index = users.findIndex((user) => String(user.email || "").trim().toLowerCase() === cleanEmail);
+  if (index < 0) throw new Error("User not found: " + email);
+  users[index].passwordHash = hashPassword_(newPassword);
+  writeTable_("Users", users);
+}
+
+function upsertUserAccount(id, name, email, password, role, territory, managerId, status) {
+  ensureSheets_();
+  const users = readTable_("Users");
+  const index = users.findIndex((user) => user.id === id || String(user.email || "").toLowerCase() === String(email || "").toLowerCase());
+  const row = {
+    id,
+    name,
+    email,
+    passwordHash: password ? hashPassword_(password) : (index >= 0 ? users[index].passwordHash : ""),
+    role,
+    territory,
+    managerId: managerId || "",
+    status: status || "Active"
+  };
+  if (index >= 0) users[index] = row;
+  else users.push(row);
+  writeTable_("Users", users);
+}
+
+function hashPassword_(password) {
+  const bytes = Utilities.computeDigest(Utilities.DigestAlgorithm.SHA_256, String(password || ""), Utilities.Charset.UTF_8);
+  return bytes.map((byte) => {
+    const value = byte < 0 ? byte + 256 : byte;
+    return ("0" + value.toString(16)).slice(-2);
+  }).join("");
 }
 
 function ensureSheets_() {
@@ -158,4 +347,8 @@ function json_(payload) {
   return ContentService
     .createTextOutput(JSON.stringify(payload))
     .setMimeType(ContentService.MimeType.JSON);
+}
+
+function errorMessage_(error) {
+  return String(error && error.message ? error.message : error);
 }

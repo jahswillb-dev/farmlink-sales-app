@@ -18,12 +18,13 @@ The app still works without a backend using local browser storage.
 2. Open **Extensions > Apps Script**.
 3. Paste the contents of `apps-script/Code.gs`.
 4. Save the script.
-5. Run `doGet` once or visit the web app with `?action=setup` after deployment to create the sheet tabs.
-6. Deploy with **Deploy > New deployment > Web app**.
-7. Set:
+5. Deploy with **Deploy > New deployment > Web app**.
+6. Set:
    - **Execute as:** Me
    - **Who has access:** Anyone
-8. Copy the `/exec` Web App URL.
+7. Copy the `/exec` Web App URL.
+8. Visit the Web App URL with `?action=setup` once to create tabs and seed default user accounts.
+   Example: `https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec?action=setup`
 
 ## Connect The App To Sheets
 
@@ -35,13 +36,48 @@ window.FARMLINK_BACKEND_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMEN
 
 Option B: in the app, click the sync status button in the top header, paste the Apps Script Web App URL, and save.
 
-Use **Push** in the backend modal to seed the Google Sheet with the current demo data. Use **Pull** to reload from the Google Sheet.
+After connecting the backend URL, users log in with their own email and password. The app receives their role from the `Users` sheet and hides records outside their scope.
+
+## Default Test Accounts
+
+Running setup seeds these accounts. The default password is `password`.
+
+- `ada@farmlink.local` - Canvasser
+- `tunde@farmlink.local` - Canvasser
+- `miriam@farmlink.local` - Area Manager
+- `bola@farmlink.local` - Canvasser
+- `grace@farmlink.local` - Area Manager
+- `admin@farmlink.local` - Sales Admin
+
+Change passwords in Apps Script by running:
+
+```js
+setUserPassword("ada@farmlink.local", "new-secure-password");
+```
+
+Create or update a user account by running:
+
+```js
+upsertUserAccount(
+  "u7",
+  "New Canvasser",
+  "newcanvasser@company.com",
+  "temporary-password",
+  "Canvasser",
+  "New Territory",
+  "u3",
+  "Active"
+);
+```
+
+For canvassers, `managerId` should be the area manager's user id. For area managers and sales admins, leave `managerId` blank.
 
 ## Database Tabs
 
 The Apps Script backend creates these tabs:
 
 - `Users`
+- `AuthTokens`
 - `Customers`
 - `BirdDetails`
 - `Visits`
@@ -57,4 +93,6 @@ Sales are split into `Sales` and `SaleItems` so multiple product line items can 
 
 - Use the deployed `/exec` URL, not the Apps Script `/dev` URL, for GitHub Pages.
 - The app sends simple text POST requests to avoid browser preflight issues.
-- Keep this as a lightweight prototype backend. For production scale, add authentication, server-side authorization, validation, and per-record update APIs.
+- User passwords are stored as SHA-256 hashes in the `Users` tab, not plain text.
+- Backend login tokens expire after 14 days.
+- Keep this as a lightweight prototype backend. For production scale, add stronger password rules, reset-password flow, audit approvals, and stricter server-side validation.

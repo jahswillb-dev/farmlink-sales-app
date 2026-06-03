@@ -1,6 +1,7 @@
 const STORAGE_KEY = "farmlink-sales-prototype-v2";
 const BACKEND_URL_KEY = "farmlink-sales-backend-url";
 const BACKEND_DISABLED_KEY = "farmlink-sales-backend-disabled";
+const SESSION_KEY = "farmlink-sales-session";
 
 const roleProfiles = {
   canvasser: "u1",
@@ -26,12 +27,12 @@ const lists = {
 const demoData = {
   currentUser: "Ada Okafor",
   users: [
-    { id: "u1", name: "Ada Okafor", role: "Canvasser", territory: "Ibadan North", managerId: "u3" },
-    { id: "u2", name: "Tunde Balogun", role: "Canvasser", territory: "Akinyele", managerId: "u3" },
-    { id: "u3", name: "Miriam Yusuf", role: "Area Manager", territory: "Oyo Central" },
-    { id: "u4", name: "Bola Nwosu", role: "Canvasser", territory: "Abeokuta East", managerId: "u6" },
-    { id: "u5", name: "Chidi Nnamdi", role: "Sales Admin", territory: "Back Office" },
-    { id: "u6", name: "Grace Bello", role: "Area Manager", territory: "Ogun Region" }
+    { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active" },
+    { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active" },
+    { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active" },
+    { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active" },
+    { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active" },
+    { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active" }
   ],
   customers: [
     {
@@ -264,6 +265,7 @@ const demoData = {
 };
 
 let state = loadState();
+let authSession = loadSession();
 let backendSync = {
   loading: false,
   saving: false,
@@ -297,11 +299,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   els.loginForm.addEventListener("submit", async (event) => {
     event.preventDefault();
-    ui.signedIn = true;
-    els.loginScreen.classList.add("is-hidden");
-    els.appShell.classList.remove("is-hidden");
-    await pullBackendState({ silent: true });
-    render();
+    await handleLogin(new FormData(els.loginForm));
   });
 
   document.body.addEventListener("click", handleClick);
@@ -322,6 +320,79 @@ function loadState() {
   } catch {
     return structuredClone(demoData);
   }
+}
+
+function loadSession() {
+  try {
+    return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+  } catch {
+    return null;
+  }
+}
+
+function saveSession(session) {
+  authSession = session;
+  if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  else localStorage.removeItem(SESSION_KEY);
+}
+
+function roleKeyForUser(role = "") {
+  const normalized = role.toLowerCase();
+  if (normalized.includes("admin")) return "admin";
+  if (normalized.includes("manager")) return "manager";
+  return "canvasser";
+}
+
+function usingRealAuth() {
+  return backendIsConfigured() && Boolean(authSession?.token && authSession?.user);
+}
+
+async function handleLogin(formData) {
+  const email = String(formData.get("email") || "").trim();
+  const password = String(formData.get("password") || "");
+  if (!email || !password) {
+    toast("Enter email and password");
+    return;
+  }
+
+  if (backendIsConfigured()) {
+    backendSync.loading = true;
+    updateSyncButton();
+    try {
+      const payload = await postBackend("login", { email, password });
+      if (!payload.ok) throw new Error(payload.error || "Login failed");
+      saveSession({ token: payload.token, user: payload.user });
+      backendSync.suppressSave = true;
+      state = normalizeBackendState(payload.data || {});
+      state.currentUser = payload.user.name;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      backendSync.suppressSave = false;
+      ui.role = roleKeyForUser(payload.user.role);
+      ui.regionFilter = "all";
+      ui.canvasserFilter = "all";
+      ui.signedIn = true;
+      els.loginScreen.classList.add("is-hidden");
+      els.appShell.classList.remove("is-hidden");
+      toast(`Welcome ${payload.user.name}`);
+      render();
+      return;
+    } catch (error) {
+      backendSync.lastError = error.message || "Login failed";
+      toast("Login failed. Check the account details.");
+      return;
+    } finally {
+      backendSync.loading = false;
+      updateSyncButton();
+    }
+  }
+
+  saveSession(null);
+  ui.role = "canvasser";
+  ui.signedIn = true;
+  els.loginScreen.classList.add("is-hidden");
+  els.appShell.classList.remove("is-hidden");
+  toast("Demo mode login");
+  render();
 }
 
 function saveState() {
@@ -377,21 +448,23 @@ async function pullBackendState(options = {}) {
     updateSyncButton();
     return false;
   }
+  if (!authSession?.token) {
+    if (!options.silent) toast("Login required before pulling sheet data");
+    updateSyncButton();
+    return false;
+  }
 
   backendSync.loading = true;
   backendSync.lastError = "";
   updateSyncButton();
   try {
-    const response = await fetch(`${backendUrl()}?action=load&ts=${Date.now()}`, {
-      method: "GET",
-      redirect: "follow"
-    });
-    const payload = await response.json();
+    const payload = await postBackend("load", { token: authSession.token });
     if (!payload.ok) throw new Error(payload.error || "Backend load failed");
 
     if (payload.data && hasBackendRows(payload.data)) {
       backendSync.suppressSave = true;
       state = normalizeBackendState(payload.data);
+      state.currentUser = authSession.user.name;
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       backendSync.suppressSave = false;
       if (!options.silent) toast("Loaded from Google Sheets");
@@ -430,7 +503,7 @@ function normalizeBackendState(data) {
 }
 
 function queueBackendSave() {
-  if (!backendIsConfigured() || backendSync.suppressSave) return;
+  if (!backendIsConfigured() || !authSession?.token || backendSync.suppressSave) return;
   clearTimeout(backendSync.saveTimer);
   backendSync.saveTimer = setTimeout(() => {
     pushBackendState({ silent: true });
@@ -443,18 +516,16 @@ async function pushBackendState(options = {}) {
     if (!options.silent) openBackendSettingsModal();
     return false;
   }
+  if (!authSession?.token) {
+    if (!options.silent) toast("Login required before saving to Google Sheets");
+    return false;
+  }
 
   backendSync.saving = true;
   backendSync.lastError = "";
   updateSyncButton();
   try {
-    const response = await fetch(backendUrl(), {
-      method: "POST",
-      redirect: "follow",
-      headers: { "Content-Type": "text/plain;charset=utf-8" },
-      body: JSON.stringify({ action: "saveAll", data: state })
-    });
-    const payload = await response.json();
+    const payload = await postBackend("saveAll", { token: authSession.token, data: state });
     if (!payload.ok) throw new Error(payload.error || "Backend save failed");
     backendSync.lastSavedAt = new Date().toLocaleTimeString();
     if (!options.silent) toast("Saved to Google Sheets");
@@ -467,6 +538,16 @@ async function pushBackendState(options = {}) {
     backendSync.saving = false;
     updateSyncButton();
   }
+}
+
+async function postBackend(action, body = {}) {
+  const response = await fetch(backendUrl(), {
+    method: "POST",
+    redirect: "follow",
+    headers: { "Content-Type": "text/plain;charset=utf-8" },
+    body: JSON.stringify({ action, ...body })
+  });
+  return response.json();
 }
 
 function openBackendSettingsModal() {
@@ -507,10 +588,11 @@ function saveBackendSettings() {
   closeModal();
   updateSyncButton();
   toast(backendIsConfigured() ? "Backend URL saved" : "Using local demo storage");
-  if (backendIsConfigured()) pullBackendState({ silent: true }).then(() => render());
+  if (backendIsConfigured() && authSession?.token) pullBackendState({ silent: true }).then(() => render());
 }
 
 function currentUserProfile() {
+  if (authSession?.user) return authSession.user;
   const userId = roleProfiles[ui.role] || roleProfiles.canvasser;
   return state.users.find((user) => user.id === userId) || state.users[0];
 }
@@ -536,7 +618,7 @@ function userIdByName(name) {
 }
 
 function customerOwnerId(customer) {
-  return customer?.ownerId || userIdByName(customer?.createdBy) || roleProfiles.canvasser;
+  return customer?.ownerId || userIdByName(customer?.createdBy) || currentUserProfile()?.id || roleProfiles.canvasser;
 }
 
 function managerForCanvasser(canvasserId) {
@@ -673,11 +755,13 @@ function renderAccessBar() {
       </div>
       ${renderScopeFilters()}
       <button class="btn subtle access-backend" data-action="open-backend-settings"><i data-lucide="database"></i>${backendStatusText()}</button>
-      <div class="role-switch access-switch" aria-label="Access role view">
-        <button data-role="canvasser" class="${ui.role === "canvasser" ? "active" : ""}">Canvasser</button>
-        <button data-role="manager" class="${ui.role === "manager" ? "active" : ""}">Area Manager</button>
-        <button data-role="admin" class="${ui.role === "admin" ? "active" : ""}">Sales Admin</button>
-      </div>
+      ${usingRealAuth() ? "" : `
+        <div class="role-switch access-switch" aria-label="Access role view">
+          <button data-role="canvasser" class="${ui.role === "canvasser" ? "active" : ""}">Canvasser</button>
+          <button data-role="manager" class="${ui.role === "manager" ? "active" : ""}">Area Manager</button>
+          <button data-role="admin" class="${ui.role === "admin" ? "active" : ""}">Sales Admin</button>
+        </div>
+      `}
     </section>
   `;
 }
@@ -710,6 +794,9 @@ function renderScopeFilters() {
 }
 
 function syncChrome() {
+  document.querySelectorAll(".topbar .role-switch").forEach((switcher) => {
+    switcher.classList.toggle("is-hidden", usingRealAuth());
+  });
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === ui.view);
   });
@@ -730,6 +817,10 @@ function handleClick(event) {
 
   const roleButton = event.target.closest("[data-role]");
   if (roleButton) {
+    if (usingRealAuth()) {
+      toast("Role is controlled by the logged-in account");
+      return;
+    }
     ui.role = roleButton.dataset.role;
     ui.regionFilter = "all";
     ui.canvasserFilter = "all";
@@ -746,6 +837,7 @@ function handleClick(event) {
 
   if (event.target.closest("#logoutButton")) {
     ui.signedIn = false;
+    saveSession(null);
     els.appShell.classList.add("is-hidden");
     els.loginScreen.classList.remove("is-hidden");
     return;

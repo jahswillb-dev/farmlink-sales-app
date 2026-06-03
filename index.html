@@ -23,15 +23,19 @@
         <form class="login-form" id="loginForm">
           <label>
             Username / Email
-            <input type="email" name="email" value="canvasser@farmlink.local" autocomplete="username" required />
+            <input type="email" name="email" placeholder="name@company.com" autocomplete="username" required />
           </label>
           <label>
             Password
-            <input type="password" name="password" value="password" autocomplete="current-password" required />
+            <input type="password" name="password" placeholder="Enter password" autocomplete="current-password" required />
           </label>
           <button type="submit" class="btn primary wide">
             <i data-lucide="log-in"></i>
             Login
+          </button>
+          <button type="button" class="btn subtle wide" data-action="open-backend-settings">
+            <i data-lucide="database"></i>
+            Backend Settings
           </button>
           <button type="button" class="link-button">Forgot password</button>
         </form>
