@@ -1,0 +1,1 @@
+window.FARMLINK_BACKEND_URL = "";

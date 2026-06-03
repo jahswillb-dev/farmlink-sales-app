@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>FarmLink Sales Prototype</title>
+    <link rel="stylesheet" href="styles.css" />
+    <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
+    <script src="config.js" defer></script>
+    <script src="app.js" defer></script>
+  </head>
+  <body>
+    <section class="login-screen" id="loginScreen">
+      <div class="login-card">
+        <div class="brand-mark">
+          <span class="brand-icon">F</span>
+          <div>
+            <strong>FarmLink Sales</strong>
+            <small>Feed canvasser field system</small>
+          </div>
+        </div>
+
+        <form class="login-form" id="loginForm">
+          <label>
+            Username / Email
+            <input type="email" name="email" value="canvasser@farmlink.local" autocomplete="username" required />
+          </label>
+          <label>
+            Password
+            <input type="password" name="password" value="password" autocomplete="current-password" required />
+          </label>
+          <button type="submit" class="btn primary wide">
+            <i data-lucide="log-in"></i>
+            Login
+          </button>
+          <button type="button" class="link-button">Forgot password</button>
+        </form>
+      </div>
+
+      <div class="login-visual" aria-label="Poultry feed sales field scene">
+        <img src="assets/farm-feed-scene.png" alt="" />
+        <div class="visual-strip">
+          <span>GPS ready</span>
+          <span>Offline capture</span>
+          <span>Manager reports</span>
+        </div>
+      </div>
+    </section>
+
+    <section class="app-shell is-hidden" id="appShell">
+      <aside class="sidebar">
+        <div class="brand-mark sidebar-brand">
+          <span class="brand-icon">F</span>
+          <div>
+            <strong>FarmLink Sales</strong>
+            <small>Canvasser console</small>
+          </div>
+        </div>
+
+        <nav class="nav-list" aria-label="Main navigation">
+          <button data-view="dashboard"><i data-lucide="layout-dashboard"></i><span>Dashboard</span></button>
+          <button data-view="customers"><i data-lucide="users"></i><span>Customers</span></button>
+          <button data-view="visits"><i data-lucide="clipboard-list"></i><span>Visits</span></button>
+          <button data-view="followups"><i data-lucide="calendar-check"></i><span>Follow-ups</span></button>
+          <button data-view="sales"><i data-lucide="receipt"></i><span>Sales</span></button>
+          <button data-view="complaints"><i data-lucide="message-square-warning"></i><span>Complaints</span></button>
+          <button data-view="reports"><i data-lucide="bar-chart-3"></i><span>Reports</span></button>
+        </nav>
+      </aside>
+
+      <div class="workspace">
+        <header class="topbar">
+          <button class="icon-btn menu-btn" id="menuButton" aria-label="Toggle navigation">
+            <i data-lucide="menu"></i>
+          </button>
+          <div class="topbar-search">
+            <i data-lucide="search"></i>
+            <input id="globalSearch" type="search" placeholder="Search customers, phone, location" />
+          </div>
+          <div class="role-switch" aria-label="Role view">
+            <button data-role="canvasser" class="active">Canvasser</button>
+            <button data-role="manager">Area Manager</button>
+            <button data-role="admin">Sales Admin</button>
+          </div>
+          <button class="status-pill" id="syncButton">
+            <i data-lucide="refresh-cw"></i>
+            Synced
+          </button>
+          <button class="icon-btn" id="logoutButton" aria-label="Logout">
+            <i data-lucide="log-out"></i>
+          </button>
+        </header>
+
+        <main id="mainContent" class="main-content"></main>
+      </div>
+
+      <nav class="bottom-nav" aria-label="Mobile navigation">
+        <button data-view="dashboard"><i data-lucide="layout-dashboard"></i><span>Home</span></button>
+        <button data-view="customers"><i data-lucide="users"></i><span>Customers</span></button>
+        <button data-view="followups"><i data-lucide="calendar-check"></i><span>Actions</span></button>
+        <button data-view="sales"><i data-lucide="receipt"></i><span>Sales</span></button>
+        <button data-view="reports"><i data-lucide="bar-chart-3"></i><span>Reports</span></button>
+      </nav>
+    </section>
+
+    <div id="modalRoot"></div>
+    <div id="toastRoot" aria-live="polite"></div>
+  </body>
+</html>
