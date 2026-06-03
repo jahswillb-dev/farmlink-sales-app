@@ -366,11 +366,37 @@ function cellValue_(value, header) {
 }
 
 function formatTime_(value) {
+  if (value === null || value === undefined || value === "") return "";
+  if (typeof value === "number" && isFinite(value)) return timeFromSheetSerial_(value);
+
   const text = String(value == null ? "" : value).trim();
-  const match = text.match(/(\d{1,2}):(\d{2})/);
-  if (!match) return text;
-  const hours = Math.min(23, Number(match[1]));
-  const minutes = Math.min(59, Number(match[2]));
+  if (/^-?\d+(\.\d+)?$/.test(text)) return timeFromSheetSerial_(Number(text));
+
+  const meridiemMatch = text.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)\b/i);
+  if (meridiemMatch) {
+    let hours = Number(meridiemMatch[1]);
+    const minutes = Number(meridiemMatch[2]);
+    const meridiem = meridiemMatch[3].toUpperCase();
+    if (meridiem === "PM" && hours < 12) hours += 12;
+    if (meridiem === "AM" && hours === 12) hours = 0;
+    return timeFromMinutes_(hours * 60 + minutes);
+  }
+
+  const match = text.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\b/);
+  if (match) return timeFromMinutes_(Number(match[1]) * 60 + Number(match[2]));
+
+  return text;
+}
+
+function timeFromSheetSerial_(value) {
+  const fraction = ((value % 1) + 1) % 1;
+  return timeFromMinutes_(Math.round(fraction * 24 * 60));
+}
+
+function timeFromMinutes_(value) {
+  const totalMinutes = ((Math.round(Number(value) || 0) % 1440) + 1440) % 1440;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
   return ("0" + hours).slice(-2) + ":" + ("0" + minutes).slice(-2);
 }
 

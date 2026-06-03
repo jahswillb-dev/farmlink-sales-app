@@ -591,6 +591,13 @@ function normalizeBackendState(data) {
   };
 }
 
+function stateForBackend() {
+  return {
+    ...state,
+    visits: (state.visits || []).map((visit) => ({ ...visit, time: formatTime(visit.time) }))
+  };
+}
+
 function queueBackendSave() {
   if (backendSync.suppressSave) return;
   markPendingSync();
@@ -627,7 +634,7 @@ async function pushBackendState(options = {}) {
   backendSync.lastError = "";
   updateSyncButton();
   try {
-    const payload = await postBackend("saveAll", { token: authSession.token, data: state });
+    const payload = await postBackend("saveAll", { token: authSession.token, data: stateForBackend() });
     if (!payload.ok) throw new Error(payload.error || "Backend save failed");
     if (payload.data) {
       backendSync.suppressSave = true;
@@ -637,7 +644,7 @@ async function pushBackendState(options = {}) {
       backendSync.suppressSave = false;
     }
     clearPendingSync();
-    backendSync.lastSavedAt = new Date().toLocaleTimeString();
+    backendSync.lastSavedAt = formatTime(new Date());
     if (!options.silent) toast("Saved to Google Sheets");
     return true;
   } catch (error) {
@@ -2221,19 +2228,42 @@ function money(value) {
 }
 
 function formatTime(value) {
-  if (!value) return "";
+  if (value === null || value === undefined || value === "") return "";
+  if (value instanceof Date && !Number.isNaN(value.getTime())) return timeFromMinutes(value.getHours() * 60 + value.getMinutes());
+  if (typeof value === "number" && Number.isFinite(value)) return timeFromSheetSerial(value);
+
   const text = String(value).trim();
-  const timeMatch = text.match(/(\d{1,2}):(\d{2})/);
-  if (timeMatch) {
-    const hours = Math.min(23, Number(timeMatch[1]));
-    const minutes = Math.min(59, Number(timeMatch[2]));
-    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  if (/^-?\d+(\.\d+)?$/.test(text)) return timeFromSheetSerial(Number(text));
+
+  const meridiemMatch = text.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\s*([AP]M)\b/i);
+  if (meridiemMatch) {
+    let hours = Number(meridiemMatch[1]);
+    const minutes = Number(meridiemMatch[2]);
+    const meridiem = meridiemMatch[3].toUpperCase();
+    if (meridiem === "PM" && hours < 12) hours += 12;
+    if (meridiem === "AM" && hours === 12) hours = 0;
+    return timeFromMinutes(hours * 60 + minutes);
   }
+
+  const timeMatch = text.match(/\b(\d{1,2}):(\d{2})(?::\d{2})?\b/);
+  if (timeMatch) return timeFromMinutes(Number(timeMatch[1]) * 60 + Number(timeMatch[2]));
+
   const date = new Date(text);
-  if (!Number.isNaN(date.getTime())) {
-    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-  }
+  if (!Number.isNaN(date.getTime())) return timeFromMinutes(date.getHours() * 60 + date.getMinutes());
+
   return text;
+}
+
+function timeFromSheetSerial(value) {
+  const fraction = ((value % 1) + 1) % 1;
+  return timeFromMinutes(Math.round(fraction * 24 * 60));
+}
+
+function timeFromMinutes(value) {
+  const totalMinutes = ((Math.round(Number(value) || 0) % 1440) + 1440) % 1440;
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
 }
 
 function formatNumber(value) {
