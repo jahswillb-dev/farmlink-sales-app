@@ -5,13 +5,13 @@ const TOKEN_TTL_DAYS = 14;
 const TABLES = {
   Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status", "username"],
   AuthTokens: ["token", "userId", "createdAt", "expiresAt"],
-  Customers: ["id", "farmName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "farmType", "birdType", "capacity", "stock", "pens", "stage", "feedConsumption", "feedBrand", "frequency", "supplier", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt"],
+  Customers: ["id", "farmName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "farmType", "birdType", "capacity", "stock", "pens", "stage", "feedConsumption", "feedBrand", "frequency", "supplier", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
   BirdDetails: ["id", "customerId", "birdType", "breed", "stage", "quantity", "pen", "age", "mortality", "feed", "notes"],
-  Visits: ["id", "customerId", "date", "time", "gps", "type", "personMet", "purpose", "summary", "observation", "currentFeed", "competitor", "interest", "nextStep", "followupDate", "notes", "createdBy", "updatedAt"],
-  Followups: ["id", "customerId", "visitId", "action", "responsible", "priority", "dueDate", "status", "completionNotes", "dateCompleted"],
-  Sales: ["id", "customerId", "visitId", "date", "paymentStatus", "deliveryStatus", "invoice", "notes", "createdBy"],
+  Visits: ["id", "customerId", "date", "time", "gps", "type", "personMet", "purpose", "summary", "observation", "currentFeed", "competitor", "interest", "nextStep", "followupDate", "notes", "createdBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
+  Followups: ["id", "customerId", "visitId", "action", "responsible", "priority", "dueDate", "status", "completionNotes", "dateCompleted", "voided", "voidedBy", "voidedAt"],
+  Sales: ["id", "customerId", "visitId", "date", "paymentStatus", "deliveryStatus", "invoice", "notes", "createdBy", "voided", "voidedBy", "voidedAt"],
   SaleItems: ["id", "saleId", "product", "category", "feedType", "quantity", "unit", "unitPrice"],
-  Complaints: ["id", "customerId", "date", "category", "product", "batch", "quantity", "description", "severity", "actionTaken", "assignedTo", "status", "resolutionNotes", "dateResolved"],
+  Complaints: ["id", "customerId", "date", "category", "product", "batch", "quantity", "description", "severity", "actionTaken", "assignedTo", "status", "resolutionNotes", "dateResolved", "voided", "voidedBy", "voidedAt"],
   AuditLogs: ["id", "customerId", "action", "user", "date"]
 };
 
@@ -123,6 +123,7 @@ function loadScoped_(user) {
 function saveScoped_(data, user) {
   const all = loadAllRaw_();
   const users = all.users;
+  const canDeleteRows = isSalesAdmin_(user);
   const allowedCanvasserIds = allowedCanvasserIds_(user, users);
   const canAccessCustomer = (customer) => allowedCanvasserIds.includes(customer.ownerId);
 
@@ -131,18 +132,21 @@ function saveScoped_(data, user) {
   const existingAccessibleCustomerIds = new Set(all.customers.filter(canAccessCustomer).map((customer) => customer.id));
   const allowedCustomerIds = new Set([...incomingCustomerIds, ...existingAccessibleCustomerIds]);
 
-  const customers = mergeScopedRows_(all.customers, incomingCustomers, canAccessCustomer);
-  const birdDetails = mergeScopedRows_(all.birdDetails, data.birdDetails || [], (row) => allowedCustomerIds.has(row.customerId));
-  const visits = mergeScopedRows_(all.visits, data.visits || [], (row) => allowedCustomerIds.has(row.customerId));
-  const followups = mergeScopedRows_(all.followups, data.followups || [], (row) => allowedCustomerIds.has(row.customerId));
-  const complaints = mergeScopedRows_(all.complaints, data.complaints || [], (row) => allowedCustomerIds.has(row.customerId));
-  const auditLogs = mergeScopedRows_(all.auditLogs, data.auditLogs || [], (row) => allowedCustomerIds.has(row.customerId));
+  const customers = mergeScopedRows_(all.customers, incomingCustomers, canAccessCustomer, canDeleteRows);
+  const birdDetails = mergeScopedRows_(all.birdDetails, data.birdDetails || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
+  const visits = mergeScopedRows_(all.visits, data.visits || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
+  const followups = mergeScopedRows_(all.followups, data.followups || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
+  const complaints = mergeScopedRows_(all.complaints, data.complaints || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
+  const auditLogs = mergeScopedRows_(all.auditLogs, data.auditLogs || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
 
   const incomingSales = data.sales || [];
-  const sales = mergeScopedRows_(all.sales, incomingSales.map(stripItems_), (sale) => allowedCustomerIds.has(sale.customerId));
-  const accessibleSaleIds = new Set(sales.filter((sale) => allowedCustomerIds.has(sale.customerId)).map((sale) => sale.id));
+  const sales = mergeScopedRows_(all.sales, incomingSales.map(stripItems_), (sale) => allowedCustomerIds.has(sale.customerId), canDeleteRows);
+  const writableSaleIds = new Set([
+    ...all.sales.filter((sale) => allowedCustomerIds.has(sale.customerId)).map((sale) => sale.id),
+    ...incomingSales.filter((sale) => allowedCustomerIds.has(sale.customerId)).map((sale) => sale.id)
+  ]);
   const incomingSaleItems = incomingSales.flatMap((sale) => (sale.items || []).map((item) => ({ ...item, saleId: sale.id })));
-  const saleItems = mergeScopedRows_(all.saleItems, incomingSaleItems, (item) => accessibleSaleIds.has(item.saleId));
+  const saleItems = mergeScopedRows_(all.saleItems, incomingSaleItems, (item) => writableSaleIds.has(item.saleId), canDeleteRows);
 
   writeTable_("Customers", customers);
   writeTable_("BirdDetails", birdDetails);
@@ -180,6 +184,10 @@ function allowedCanvasserIds_(user, users) {
   return [user.id];
 }
 
+function isSalesAdmin_(user) {
+  return String(user.role || "").toLowerCase().includes("admin");
+}
+
 function scopedUsers_(user, users) {
   const role = String(user.role || "").toLowerCase();
   if (role.includes("admin")) return users;
@@ -189,13 +197,13 @@ function scopedUsers_(user, users) {
   return users.filter((row) => row.id === user.id || row.id === user.managerId);
 }
 
-function mergeScopedRows_(existingRows, incomingRows, canWrite) {
+function mergeScopedRows_(existingRows, incomingRows, canWrite, canDelete) {
   const incomingById = incomingRows.reduce((map, row) => {
     if (row.id && canWrite(row)) map[row.id] = row;
     return map;
   }, {});
   const nextRows = existingRows
-    .filter((row) => !canWrite(row))
+    .filter((row) => !canWrite(row) || (!canDelete && !incomingById[row.id]))
     .concat(Object.values(incomingById));
   return nextRows;
 }

@@ -833,6 +833,10 @@ function scopedData() {
   };
 }
 
+function canDeleteBusinessRecords() {
+  return isSalesAdmin();
+}
+
 function defaultCustomerId() {
   return scopedCustomers()[0]?.id || state.customers[0]?.id || "";
 }
@@ -1003,6 +1007,7 @@ function handleChange(event) {
 function runAction(action, data) {
   const id = data.id || "";
   const customerId = data.customer || "";
+  const collection = data.collection || "";
   switch (action) {
     case "open-customer":
       openCustomerModal(id);
@@ -1055,7 +1060,17 @@ function runAction(action, data) {
       saveSale();
       break;
     case "delete-sale":
-      deleteRecord("sales", id);
+      deleteBusinessRecord("sales", id);
+      closeModal();
+      render();
+      break;
+    case "delete-record":
+      deleteBusinessRecord(collection, id);
+      closeModal();
+      render();
+      break;
+    case "void-record":
+      voidBusinessRecord(collection, id);
       closeModal();
       render();
       break;
@@ -1338,7 +1353,7 @@ function customerTable(rows) {
             <span class="customer-main">
               <span class="customer-title">
                 <strong class="truncate">${customer.farmName}</strong>
-                ${statusBadge(customer.category)}
+                ${recordStatusBadge(customer, statusBadge(customer.category))}
               </span>
               <span class="customer-subline truncate">${customer.contact} - ${customer.phone}</span>
             </span>
@@ -1368,9 +1383,9 @@ function compactVisitTable(rows) {
       ${rows.map((visit) => `
         <button type="button" class="customer-row" data-action="open-visit" data-id="${visit.id}" data-customer="${visit.customerId}" aria-label="Open visit for ${escapeAttr(customerName(visit.customerId))}">
           <span class="customer-main">
-            <span class="customer-title">
-              <strong class="truncate">${customerName(visit.customerId)}</strong>
-              ${statusBadge(visit.type)}
+              <span class="customer-title">
+                <strong class="truncate">${customerName(visit.customerId)}</strong>
+                ${recordStatusBadge(visit, statusBadge(visit.type))}
             </span>
             <span class="customer-subline truncate">${visit.personMet || "Person not recorded"} - ${visit.summary || visit.purpose || "No summary"}</span>
           </span>
@@ -1396,9 +1411,9 @@ function compactFollowupTable(rows) {
       ${rows.map((followup) => `
         <button type="button" class="customer-row" data-action="open-followup" data-id="${followup.id}" data-customer="${followup.customerId}" aria-label="Open follow-up for ${escapeAttr(customerName(followup.customerId))}">
           <span class="customer-main">
-            <span class="customer-title">
-              <strong class="truncate">${customerName(followup.customerId)}</strong>
-              ${priorityBadge(followup.priority)}
+              <span class="customer-title">
+                <strong class="truncate">${customerName(followup.customerId)}</strong>
+                ${recordStatusBadge(followup, priorityBadge(followup.priority))}
             </span>
             <span class="customer-subline truncate">${followup.action || "No action point"}</span>
           </span>
@@ -1429,7 +1444,7 @@ function compactSalesTable(rows) {
             <span class="customer-main">
               <span class="customer-title">
                 <strong class="truncate">${customerName(sale.customerId)}</strong>
-                ${statusBadge(sale.paymentStatus)}
+                ${recordStatusBadge(sale, statusBadge(sale.paymentStatus))}
               </span>
               <span class="customer-subline truncate">${products || "No products"} - ${formatNumber(quantity)} ${quantity === 1 ? "unit" : "units"}</span>
             </span>
@@ -1456,9 +1471,9 @@ function compactComplaintTable(rows) {
       ${rows.map((complaint) => `
         <button type="button" class="customer-row" data-action="open-complaint" data-id="${complaint.id}" data-customer="${complaint.customerId}" aria-label="Open complaint for ${escapeAttr(customerName(complaint.customerId))}">
           <span class="customer-main">
-            <span class="customer-title">
-              <strong class="truncate">${customerName(complaint.customerId)}</strong>
-              ${severityBadge(complaint.severity)}
+              <span class="customer-title">
+                <strong class="truncate">${customerName(complaint.customerId)}</strong>
+              ${recordStatusBadge(complaint, severityBadge(complaint.severity))}
             </span>
             <span class="customer-subline truncate">${complaint.category} - ${complaint.product || "No product"}</span>
           </span>
@@ -1485,6 +1500,44 @@ function lineItemHeader(labels) {
   `;
 }
 
+function isVoided(record) {
+  const value = String(record?.voided || "").trim().toLowerCase();
+  return value === "yes" || value === "true" || value === "voided";
+}
+
+function recordStatusBadge(record, fallback) {
+  return isVoided(record) ? statusBadge("Voided", "voided") : fallback;
+}
+
+function voidNotice(record) {
+  if (!isVoided(record)) return "";
+  return `
+    <div class="void-notice">
+      <strong>Voided record</strong>
+      <span>${record.voidedBy || "Unknown user"}${record.voidedAt ? ` on ${record.voidedAt}` : ""}</span>
+    </div>
+  `;
+}
+
+function recordActionButton(collection, id, customerId = "") {
+  if (!id) return "";
+  const label = collectionLabel(collection);
+  if (canDeleteBusinessRecords()) {
+    return `<button class="btn danger" data-action="delete-record" data-collection="${collection}" data-id="${id}" data-customer="${customerId}"><i data-lucide="trash-2"></i>Delete ${label}</button>`;
+  }
+  return `<button class="btn warning" data-action="void-record" data-collection="${collection}" data-id="${id}" data-customer="${customerId}"><i data-lucide="ban"></i>Void ${label}</button>`;
+}
+
+function collectionLabel(collection) {
+  return ({
+    customers: "Customer",
+    visits: "Visit",
+    followups: "Follow-up",
+    sales: "Sale",
+    complaints: "Complaint"
+  })[collection] || "Record";
+}
+
 function openCustomerModal(id = "") {
   const isNew = !id;
   const customer = isNew ? blankCustomer() : state.customers.find((item) => item.id === id);
@@ -1499,6 +1552,7 @@ function openCustomerModal(id = "") {
       ${isNew ? "" : `<button class="btn" data-action="new-visit" data-customer="${customer.id}"><i data-lucide="map-pin"></i>Visit</button>`}
       ${isNew ? "" : `<button class="btn" data-action="new-sale" data-customer="${customer.id}"><i data-lucide="receipt"></i>Sale</button>`}
       ${isNew ? "" : `<button class="btn" data-action="new-complaint" data-customer="${customer.id}"><i data-lucide="message-square-plus"></i>Complaint</button>`}
+      ${isNew ? "" : recordActionButton("customers", customer.id, customer.id)}
       <button class="btn" data-action="close-modal">Close</button>
       <button class="btn primary" data-action="save-customer"><i data-lucide="save"></i>Save</button>
     `
@@ -1593,6 +1647,7 @@ function switchCustomerTab(tab) {
 
 function customerForm(customer) {
   return `
+    ${voidNotice(customer)}
     <form id="customerForm" data-id="${customer.id || ""}">
       <div class="mini-grid">
         ${fact("Last Visit", lastVisitDate(customer.id) || "None")}
@@ -1695,6 +1750,7 @@ function openVisitModal(id = "", customerId = "") {
     return;
   }
   openModal(id ? "Visit Details" : "Start Customer Visit", `
+    ${voidNotice(visit)}
     <form id="visitForm" data-id="${visit.id || ""}">
       <div class="form-grid">
         ${customerSelect("customerId", "Customer Name", visit.customerId)}
@@ -1720,6 +1776,7 @@ function openVisitModal(id = "", customerId = "") {
   `, {
     size: "wide",
     footer: `
+      ${id ? recordActionButton("visits", visit.id, visit.customerId) : ""}
       <button class="btn" data-action="new-followup" data-customer="${visit.customerId}"><i data-lucide="calendar-plus"></i>Add Follow-up</button>
       <button class="btn" data-action="new-sale" data-customer="${visit.customerId}"><i data-lucide="receipt"></i>Add Sale</button>
       <button class="btn" data-action="new-complaint" data-customer="${visit.customerId}"><i data-lucide="message-square-plus"></i>Add Complaint</button>
@@ -1736,6 +1793,7 @@ function openFollowupModal(id = "", customerId = "") {
     return;
   }
   openModal(id ? "Follow-up Action Point" : "Add Follow-up", `
+    ${voidNotice(followup)}
     <form id="followupForm" data-id="${followup.id || ""}">
       <div class="form-grid">
         ${customerSelect("customerId", "Customer Name", followup.customerId)}
@@ -1751,6 +1809,7 @@ function openFollowupModal(id = "", customerId = "") {
     </form>
   `, {
     footer: `
+      ${id ? recordActionButton("followups", followup.id, followup.customerId) : ""}
       <button class="btn" data-action="close-modal">Close</button>
       <button class="btn primary" data-action="save-followup"><i data-lucide="save"></i>Save</button>
     `
@@ -1765,6 +1824,7 @@ function openSaleModal(id = "", customerId = "") {
   }
   const item = sale.items[0] || blankSaleItem();
   openModal(id ? "Sale Details" : "Record Sale", `
+    ${voidNotice(sale)}
     <form id="saleForm" data-id="${sale.id || ""}" data-item="${item.id || ""}">
       <div class="form-grid">
         ${customerSelect("customerId", "Customer Name", sale.customerId)}
@@ -1795,7 +1855,7 @@ function openSaleModal(id = "", customerId = "") {
   `, {
     size: "wide",
     footer: `
-      ${id ? `<button class="btn danger" data-action="delete-sale" data-id="${id}"><i data-lucide="trash-2"></i>Delete</button>` : ""}
+      ${id ? recordActionButton("sales", sale.id, sale.customerId) : ""}
       <button class="btn" data-action="close-modal">Close</button>
       <button class="btn primary" data-action="save-sale"><i data-lucide="save"></i>Save</button>
     `
@@ -1809,6 +1869,7 @@ function openComplaintModal(id = "", customerId = "") {
     return;
   }
   openModal(id ? "Complaint Details" : "Record Complaint", `
+    ${voidNotice(complaint)}
     <form id="complaintForm" data-id="${complaint.id || ""}">
       <div class="form-grid">
         ${customerSelect("customerId", "Customer Name", complaint.customerId)}
@@ -1829,6 +1890,7 @@ function openComplaintModal(id = "", customerId = "") {
   `, {
     size: "wide",
     footer: `
+      ${id ? recordActionButton("complaints", complaint.id, complaint.customerId) : ""}
       <button class="btn" data-action="close-modal">Close</button>
       <button class="btn primary" data-action="save-complaint"><i data-lucide="save"></i>Save</button>
     `
@@ -1908,8 +1970,9 @@ function saveFollowup() {
   if (!form.reportValidity()) return;
   const values = serializeForm(form);
   const id = form.dataset.id || makeId("f", state.followups);
-  upsert("followups", { ...blankFollowup(values.customerId), ...values, id });
-  audit(values.customerId, form.dataset.id ? "Edited follow-up" : "Created follow-up");
+  const existing = state.followups.find((item) => item.id === id);
+  upsert("followups", { ...blankFollowup(values.customerId), ...existing, ...values, id });
+  audit(values.customerId, existing ? "Edited follow-up" : "Created follow-up");
   saveState();
   closeModal();
   toast("Follow-up saved");
@@ -1958,8 +2021,9 @@ function saveComplaint() {
   if (!form.reportValidity()) return;
   const values = serializeForm(form);
   const id = form.dataset.id || makeId("cp", state.complaints);
-  upsert("complaints", { ...blankComplaint(values.customerId), ...values, id });
-  audit(values.customerId, form.dataset.id ? "Edited complaint status/details" : "Recorded complaint");
+  const existing = state.complaints.find((item) => item.id === id);
+  upsert("complaints", { ...blankComplaint(values.customerId), ...existing, ...values, id });
+  audit(values.customerId, existing ? "Edited complaint status/details" : "Recorded complaint");
   saveState();
   closeModal();
   toast("Complaint saved");
@@ -1970,6 +2034,58 @@ function deleteRecord(collection, id) {
   state[collection] = state[collection].filter((item) => item.id !== id);
   saveState();
   toast("Record deleted");
+}
+
+function deleteBusinessRecord(collection, id) {
+  if (!canDeleteBusinessRecords()) {
+    toast("Only Sales Admin can delete records");
+    return;
+  }
+  if (!["customers", "visits", "followups", "sales", "complaints"].includes(collection)) {
+    toast("Delete is not available for this record");
+    return;
+  }
+
+  if (collection === "customers") {
+    const relatedSaleIds = new Set(state.sales.filter((sale) => sale.customerId === id).map((sale) => sale.id));
+    state.customers = state.customers.filter((item) => item.id !== id);
+    state.birdDetails = state.birdDetails.filter((item) => item.customerId !== id);
+    state.visits = state.visits.filter((item) => item.customerId !== id);
+    state.followups = state.followups.filter((item) => item.customerId !== id);
+    state.sales = state.sales.filter((item) => item.customerId !== id);
+    state.complaints = state.complaints.filter((item) => item.customerId !== id);
+    state.auditLogs = state.auditLogs.filter((item) => item.customerId !== id && !relatedSaleIds.has(item.saleId));
+  } else {
+    state[collection] = state[collection].filter((item) => item.id !== id);
+  }
+
+  saveState();
+  toast(`${collectionLabel(collection)} deleted`);
+}
+
+function voidBusinessRecord(collection, id) {
+  if (canDeleteBusinessRecords()) {
+    toast("Sales Admin can delete records instead");
+    return;
+  }
+  if (!["customers", "visits", "followups", "sales", "complaints"].includes(collection)) {
+    toast("Void is not available for this record");
+    return;
+  }
+
+  const record = state[collection].find((item) => item.id === id);
+  if (!record) {
+    toast("Record not found");
+    return;
+  }
+
+  record.voided = "Yes";
+  record.voidedBy = currentUserName();
+  record.voidedAt = today();
+  if (collection === "followups") record.status = "Cancelled";
+  audit(record.customerId || id, `Voided ${collectionLabel(collection).toLowerCase()} record`);
+  saveState();
+  toast(`${collectionLabel(collection)} voided`);
 }
 
 function openModal(title, body, options = {}) {
@@ -2410,7 +2526,10 @@ function blankCustomer() {
     createdBy: "",
     createdAt: "",
     updatedBy: "",
-    updatedAt: ""
+    updatedAt: "",
+    voided: "",
+    voidedBy: "",
+    voidedAt: ""
   };
 }
 
@@ -2433,16 +2552,19 @@ function blankVisit(customerId = "") {
     followupDate: today(),
     notes: "",
     createdBy: currentUserName(),
-    updatedAt: today()
+    updatedAt: today(),
+    voided: "",
+    voidedBy: "",
+    voidedAt: ""
   };
 }
 
 function blankFollowup(customerId = "") {
-  return { id: "", customerId: customerId || defaultCustomerId(), visitId: "", action: "", responsible: currentUserName(), priority: "Medium", dueDate: today(), status: "Pending", completionNotes: "", dateCompleted: "" };
+  return { id: "", customerId: customerId || defaultCustomerId(), visitId: "", action: "", responsible: currentUserName(), priority: "Medium", dueDate: today(), status: "Pending", completionNotes: "", dateCompleted: "", voided: "", voidedBy: "", voidedAt: "" };
 }
 
 function blankSale(customerId = "") {
-  return { id: "", customerId: customerId || defaultCustomerId(), visitId: "", date: today(), paymentStatus: "Paid", deliveryStatus: "Delivered", invoice: "", notes: "", createdBy: currentUserName(), items: [blankSaleItem()] };
+  return { id: "", customerId: customerId || defaultCustomerId(), visitId: "", date: today(), paymentStatus: "Paid", deliveryStatus: "Delivered", invoice: "", notes: "", createdBy: currentUserName(), voided: "", voidedBy: "", voidedAt: "", items: [blankSaleItem()] };
 }
 
 function blankSaleItem() {
@@ -2450,7 +2572,7 @@ function blankSaleItem() {
 }
 
 function blankComplaint(customerId = "") {
-  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "Broiler Starter", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "" };
+  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "Broiler Starter", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "" };
 }
 
 function makeId(prefix, collection) {

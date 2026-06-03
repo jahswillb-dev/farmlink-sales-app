@@ -839,6 +839,11 @@ textarea:focus {
   color: #832b2a;
 }
 
+.badge.voided {
+  background: #eceff3;
+  color: #3f4852;
+}
+
 .priority.high,
 .severity.high {
   background: #fff0d9;
@@ -881,6 +886,28 @@ textarea:focus {
   color: var(--muted);
   font-size: 13px;
   line-height: 1.45;
+}
+
+.void-notice {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+  border: 1px solid #d6dce3;
+  border-radius: 8px;
+  background: #f5f7f9;
+  color: #3f4852;
+  padding: 10px 12px;
+  font-size: 13px;
+}
+
+.void-notice strong {
+  color: #2f3740;
+}
+
+.void-notice span {
+  color: var(--muted);
+  font-weight: 700;
 }
 
 .field-row {

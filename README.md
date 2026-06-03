@@ -38,6 +38,13 @@ After connecting the backend URL, users log in with their own username or email 
 
 Only Sales Admin users can open the backend status panel in the app. Regular canvassers and area managers do not configure anything in their browsers.
 
+## Delete And Void Rules
+
+- Sales Admin users can permanently delete customers, visits, follow-ups, sales, and complaints.
+- Canvassers and Area Managers can only void those records.
+- Voided records remain in Google Sheets with `voided`, `voidedBy`, and `voidedAt` metadata.
+- After updating Apps Script, open the `/exec?action=setup` URL once so the new void columns are added to existing sheets.
+
 ## Offline Sync
 
 - Users must log in online at least once.
