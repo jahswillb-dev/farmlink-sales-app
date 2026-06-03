@@ -1,6 +1,7 @@
 const SPREADSHEET_ID = "";
 const DEFAULT_PASSWORD = "password";
 const TOKEN_TTL_DAYS = 14;
+const EVIDENCE_FOLDER_NAME = "FarmLink Complaint Evidence";
 
 const TABLES = {
   Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status", "username"],
@@ -136,7 +137,8 @@ function saveScoped_(data, user) {
   const birdDetails = mergeScopedRows_(all.birdDetails, data.birdDetails || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
   const visits = mergeScopedRows_(all.visits, data.visits || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
   const followups = mergeScopedRows_(all.followups, data.followups || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
-  const complaints = mergeScopedRows_(all.complaints, data.complaints || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
+  const incomingComplaints = (data.complaints || []).map(processComplaintEvidence_);
+  const complaints = mergeScopedRows_(all.complaints, incomingComplaints, (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
   const auditLogs = mergeScopedRows_(all.auditLogs, data.auditLogs || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
 
   const incomingSales = data.sales || [];
@@ -218,6 +220,90 @@ function stripSaleId_(item) {
   const clone = { ...item };
   delete clone.saleId;
   return clone;
+}
+
+function processComplaintEvidence_(complaint) {
+  const items = parseEvidenceItems_(complaint.evidenceData, complaint.evidenceName)
+    .map((item) => materializeEvidenceItem_(item))
+    .slice(0, 8);
+  return {
+    ...complaint,
+    evidenceName: items.map((item) => item.name).filter(Boolean).join(", "),
+    evidenceData: JSON.stringify(items)
+  };
+}
+
+function parseEvidenceItems_(evidenceData, evidenceName) {
+  if (!evidenceData) return [];
+  const text = String(evidenceData || "").trim();
+  if (!text) return [];
+  try {
+    const parsed = JSON.parse(text);
+    if (Array.isArray(parsed)) return parsed;
+  } catch (error) {
+    // Fall through for legacy single-file evidence data URLs.
+  }
+  if (text.indexOf("data:") === 0) {
+    const mimeType = text.match(/^data:([^;]+);base64,/)?.[1] || "image/jpeg";
+    return [{
+      id: Utilities.getUuid(),
+      name: evidenceName || "Complaint evidence",
+      type: mimeType.indexOf("video/") === 0 ? "video" : "image",
+      mimeType,
+      dataUrl: text,
+      addedAt: new Date().toISOString()
+    }];
+  }
+  return [];
+}
+
+function materializeEvidenceItem_(item) {
+  const clean = sanitizeEvidenceItem_(item);
+  if (!clean.dataUrl) return clean;
+
+  const match = String(clean.dataUrl).match(/^data:([^;]+);base64,(.+)$/);
+  if (!match) return clean;
+
+  const mimeType = match[1];
+  if (mimeType.indexOf("image/") !== 0 && mimeType.indexOf("video/") !== 0) {
+    throw new Error("Evidence must be an image or video file");
+  }
+
+  const bytes = Utilities.base64Decode(match[2]);
+  const fileName = safeFileName_(clean.name || "complaint-evidence");
+  const file = evidenceFolder_().createFile(Utilities.newBlob(bytes, mimeType, fileName));
+  file.setSharing(DriveApp.Access.ANYONE_WITH_LINK, DriveApp.Permission.VIEW);
+
+  delete clean.dataUrl;
+  clean.mimeType = mimeType;
+  clean.driveFileId = file.getId();
+  clean.url = file.getUrl();
+  clean.uploadedAt = new Date().toISOString();
+  return clean;
+}
+
+function sanitizeEvidenceItem_(item) {
+  const mimeType = String(item.mimeType || "").trim();
+  return {
+    id: item.id || Utilities.getUuid(),
+    name: String(item.name || "Complaint evidence").slice(0, 120),
+    type: item.type || (mimeType.indexOf("video/") === 0 ? "video" : "image"),
+    mimeType,
+    url: item.url || "",
+    driveFileId: item.driveFileId || "",
+    dataUrl: item.dataUrl || "",
+    addedAt: item.addedAt || "",
+    uploadedAt: item.uploadedAt || ""
+  };
+}
+
+function evidenceFolder_() {
+  const folders = DriveApp.getFoldersByName(EVIDENCE_FOLDER_NAME);
+  return folders.hasNext() ? folders.next() : DriveApp.createFolder(EVIDENCE_FOLDER_NAME);
+}
+
+function safeFileName_(name) {
+  return String(name || "complaint-evidence").replace(/[\\/:*?"<>|]/g, "-").slice(0, 120);
 }
 
 function sanitizeUser_(user) {

@@ -586,7 +586,7 @@ function normalizeBackendState(data) {
     visits: (data.visits || []).map((visit) => ({ ...visit, time: formatTime(visit.time) })),
     followups: data.followups || [],
     sales: (data.sales || []).map((sale) => ({ ...sale, items: sale.items || [] })),
-    complaints: data.complaints || [],
+    complaints: (data.complaints || []).map(normalizeComplaintRecord),
     auditLogs: data.auditLogs || []
   };
 }
@@ -594,8 +594,28 @@ function normalizeBackendState(data) {
 function stateForBackend() {
   return {
     ...state,
-    visits: (state.visits || []).map((visit) => ({ ...visit, time: formatTime(visit.time) }))
+    visits: (state.visits || []).map((visit) => ({ ...visit, time: formatTime(visit.time) })),
+    complaints: (state.complaints || []).map(complaintForBackend)
   };
+}
+
+function normalizeComplaintRecord(complaint) {
+  const evidenceItems = evidenceItemsFromRecord(complaint);
+  return {
+    ...complaint,
+    evidenceItems,
+    evidenceName: evidenceItems.map((item) => item.name).filter(Boolean).join(", "),
+    evidenceData: JSON.stringify(evidenceItems)
+  };
+}
+
+function complaintForBackend(complaint) {
+  const evidenceItems = evidenceItemsFromRecord(complaint);
+  const clean = { ...complaint };
+  delete clean.evidenceItems;
+  clean.evidenceName = evidenceItems.map((item) => item.name).filter(Boolean).join(", ");
+  clean.evidenceData = JSON.stringify(evidenceItems);
+  return clean;
 }
 
 function queueBackendSave() {
@@ -1091,7 +1111,7 @@ function runAction(action, data) {
       captureGps(data.prefix || "");
       break;
     case "remove-evidence":
-      removeEvidencePreview();
+      removeEvidencePreview(data.evidenceId || "");
       break;
     case "close-modal":
       closeModal();
@@ -1490,7 +1510,7 @@ function compactComplaintTable(rows) {
           <span class="customer-side">
             <small>${complaint.assignedTo || "Unassigned"}</small>
             <span class="customer-badges">
-              ${hasEvidence(complaint) ? statusBadge("Photo", "active") : ""}
+              ${hasEvidence(complaint) ? statusBadge(`${evidenceItemsFromRecord(complaint).length} file${evidenceItemsFromRecord(complaint).length === 1 ? "" : "s"}`, "active") : ""}
               ${statusBadge(complaint.status)}
             </span>
           </span>
@@ -1520,7 +1540,32 @@ function recordStatusBadge(record, fallback) {
 }
 
 function hasEvidence(record) {
-  return Boolean(record?.evidenceData);
+  return evidenceItemsFromRecord(record).length > 0;
+}
+
+function evidenceItemsFromRecord(record) {
+  if (!record) return [];
+  if (Array.isArray(record.evidenceItems)) return record.evidenceItems.filter(Boolean);
+  const evidenceData = String(record.evidenceData || "").trim();
+  if (!evidenceData) return [];
+  try {
+    const parsed = JSON.parse(evidenceData);
+    if (Array.isArray(parsed)) return parsed.filter(Boolean);
+  } catch {
+    // Fall through for legacy single-file data URL evidence.
+  }
+  if (evidenceData.startsWith("data:")) {
+    const mimeType = evidenceData.match(/^data:([^;]+);base64,/)?.[1] || "image/jpeg";
+    return [{
+      id: makeEvidenceId(),
+      name: record.evidenceName || "Complaint evidence",
+      type: mimeType.startsWith("video/") ? "video" : "image",
+      mimeType,
+      dataUrl: evidenceData,
+      addedAt: today()
+    }];
+  }
+  return [];
 }
 
 function voidNotice(record) {
@@ -1913,24 +1958,61 @@ function openComplaintModal(id = "", customerId = "") {
 }
 
 function complaintEvidenceField(complaint) {
+  const items = evidenceItemsFromRecord(complaint);
   return `
     <div class="evidence-panel full">
       <div class="evidence-preview" id="complaintEvidencePreview">
-        ${hasEvidence(complaint)
-          ? `<img src="${escapeAttr(complaint.evidenceData)}" alt="Complaint photo evidence" />`
-          : `<span>No photo attached</span>`}
+        ${evidenceGallery(items)}
       </div>
       <label>
-        Photo Evidence
-        <input name="evidencePhoto" type="file" accept="image/*" data-evidence-input />
+        Photo / Video Evidence
+        <input name="evidenceFiles" type="file" accept="image/*,video/*" multiple data-evidence-input />
       </label>
       <input type="hidden" name="evidenceRemoved" value="" />
       <div class="evidence-actions">
-        <span>${complaint.evidenceName || "Image will be compressed before saving"}</span>
-        ${hasEvidence(complaint) ? `<button type="button" class="btn subtle" data-action="remove-evidence"><i data-lucide="x"></i>Remove Photo</button>` : ""}
+        <span>${items.length ? `${items.length} evidence file${items.length === 1 ? "" : "s"} attached` : "Photos are compressed; videos are uploaded to Drive when synced"}</span>
       </div>
     </div>
   `;
+}
+
+function evidenceGallery(items) {
+  if (!items.length) return `<span>No evidence attached</span>`;
+  return `
+    <div class="evidence-grid">
+      ${items.map((item) => evidenceCard(item)).join("")}
+    </div>
+  `;
+}
+
+function evidenceCard(item, isNew = false) {
+  const source = evidenceSource(item);
+  const isVideo = String(item.type || item.mimeType || "").startsWith("video");
+  const media = source && source.startsWith("data:")
+    ? isVideo
+      ? `<video src="${escapeAttr(source)}" controls muted playsinline></video>`
+      : `<img src="${escapeAttr(source)}" alt="${escapeAttr(item.name || "Complaint evidence")}" />`
+    : `<div class="evidence-file-icon"><i data-lucide="${isVideo ? "video" : "image"}"></i></div>`;
+  const openLink = item.url ? `<a class="btn subtle" href="${escapeAttr(item.url)}" target="_blank" rel="noreferrer"><i data-lucide="external-link"></i>Open</a>` : "";
+  const removeButton = isNew ? "" : `<button type="button" class="btn subtle" data-action="remove-evidence" data-evidence-id="${escapeAttr(item.id || "")}"><i data-lucide="x"></i>Remove</button>`;
+  return `
+    <figure class="evidence-card" data-evidence-card="${escapeAttr(item.id || "")}">
+      ${media}
+      <figcaption>
+        <strong class="truncate">${escapeHtml(item.name || "Evidence file")}</strong>
+        <span>${isNew ? "Selected" : isVideo ? "Video" : "Photo"}</span>
+        <div class="evidence-card-actions">${openLink}${removeButton}</div>
+      </figcaption>
+    </figure>
+  `;
+}
+
+function evidenceSource(item) {
+  if (item.dataUrl) return item.dataUrl;
+  if (item.driveFileId && String(item.type || item.mimeType || "").startsWith("image")) {
+    return `https://drive.google.com/uc?export=view&id=${encodeURIComponent(item.driveFileId)}`;
+  }
+  return "";
 }
 
 function saveCustomer() {
@@ -2060,7 +2142,7 @@ async function saveComplaint() {
   const existing = state.complaints.find((item) => item.id === id);
   const evidence = await complaintEvidencePayload(form, existing);
   if (!evidence) return;
-  delete values.evidencePhoto;
+  delete values.evidenceFiles;
   delete values.evidenceRemoved;
   upsert("complaints", { ...blankComplaint(values.customerId), ...existing, ...values, ...evidence, id });
   audit(values.customerId, existing ? "Edited complaint status/details" : "Recorded complaint");
@@ -2071,25 +2153,49 @@ async function saveComplaint() {
 }
 
 async function complaintEvidencePayload(form, existing) {
-  const file = form.elements.evidencePhoto?.files?.[0];
-  if (file) {
-    try {
-      return {
-        evidenceName: file.name,
-        evidenceData: await compressImageFile(file)
-      };
-    } catch (error) {
-      toast(error.message || "Could not attach photo evidence");
-      return null;
+  try {
+    const removedIds = new Set(String(form.elements.evidenceRemoved?.value || "").split(",").filter(Boolean));
+    const existingItems = evidenceItemsFromRecord(existing).filter((item) => !removedIds.has(item.id));
+    const files = Array.from(form.elements.evidenceFiles?.files || []);
+    const newItems = [];
+    for (const file of files) {
+      newItems.push(await prepareEvidenceFile(file));
     }
+    const items = [...existingItems, ...newItems].slice(0, 8);
+    return {
+      evidenceItems: items,
+      evidenceName: items.map((item) => item.name).filter(Boolean).join(", "),
+      evidenceData: JSON.stringify(items)
+    };
+  } catch (error) {
+    toast(error.message || "Could not attach evidence");
+    return null;
   }
-  if (form.elements.evidenceRemoved?.value === "1") {
-    return { evidenceName: "", evidenceData: "" };
+}
+
+async function prepareEvidenceFile(file) {
+  if (file.type.startsWith("image/")) {
+    return {
+      id: makeEvidenceId(),
+      name: file.name,
+      type: "image",
+      mimeType: "image/jpeg",
+      dataUrl: await compressImageFile(file),
+      addedAt: today()
+    };
   }
-  return {
-    evidenceName: existing?.evidenceName || "",
-    evidenceData: existing?.evidenceData || ""
-  };
+  if (file.type.startsWith("video/")) {
+    if (file.size > 8 * 1024 * 1024) throw new Error(`${file.name} is too large. Use a video under 8 MB.`);
+    return {
+      id: makeEvidenceId(),
+      name: file.name,
+      type: "video",
+      mimeType: file.type || "video/mp4",
+      dataUrl: await fileToDataUrl(file),
+      addedAt: today()
+    };
+  }
+  throw new Error("Evidence must be an image or video file");
 }
 
 function deleteRecord(collection, id) {
@@ -2171,29 +2277,45 @@ function closeModal() {
 }
 
 function updateEvidencePreview(inputNode) {
-  const file = inputNode.files?.[0];
+  const files = Array.from(inputNode.files || []);
   const preview = document.getElementById("complaintEvidencePreview");
-  const removedField = document.querySelector('input[name="evidenceRemoved"]');
-  if (!preview || !file) return;
-  if (removedField) removedField.value = "";
-  if (preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+  if (!preview || !files.length) return;
+  if (preview.dataset.objectUrls) {
+    preview.dataset.objectUrls.split("|").filter(Boolean).forEach((url) => URL.revokeObjectURL(url));
+  }
+  preview.querySelectorAll('[data-evidence-card^="selected-"]').forEach((node) => node.remove());
 
-  const url = URL.createObjectURL(file);
-  preview.innerHTML = `<img src="${url}" alt="Selected complaint photo evidence" />`;
-  preview.dataset.objectUrl = url;
+  const urls = files.map((file) => URL.createObjectURL(file));
+  const cards = files.map((file, index) => evidenceCard({
+    id: `selected-${index}`,
+    name: file.name,
+    type: file.type.startsWith("video/") ? "video" : "image",
+    mimeType: file.type,
+    dataUrl: urls[index]
+  }, true)).join("");
+  const existingGrid = preview.querySelector(".evidence-grid")?.innerHTML || "";
+  preview.innerHTML = `<div class="evidence-grid">${existingGrid}${cards}</div>`;
+  preview.dataset.objectUrls = urls.join("|");
+  refreshIcons();
 }
 
-function removeEvidencePreview() {
+function removeEvidencePreview(evidenceId = "") {
   const preview = document.getElementById("complaintEvidencePreview");
-  const inputNode = document.querySelector('input[name="evidencePhoto"]');
+  const inputNode = document.querySelector('input[name="evidenceFiles"]');
   const removedField = document.querySelector('input[name="evidenceRemoved"]');
-  if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
-  if (preview) {
-    preview.innerHTML = "<span>No photo attached</span>";
-    delete preview.dataset.objectUrl;
+  if (evidenceId && removedField) {
+    const ids = new Set(String(removedField.value || "").split(",").filter(Boolean));
+    ids.add(evidenceId);
+    removedField.value = [...ids].join(",");
   }
-  if (inputNode) inputNode.value = "";
-  if (removedField) removedField.value = "1";
+  const card = evidenceId
+    ? [...(preview?.querySelectorAll("[data-evidence-card]") || [])].find((node) => node.dataset.evidenceCard === evidenceId)
+    : null;
+  if (card) card.remove();
+  if (preview && !preview.querySelector(".evidence-card")) {
+    preview.innerHTML = "<span>No evidence attached</span>";
+  }
+  if (!evidenceId && inputNode) inputNode.value = "";
 }
 
 async function compressImageFile(file) {
@@ -2246,33 +2368,65 @@ function drawCompressedImage(image, maxSize, quality) {
   return canvas.toDataURL("image/jpeg", quality);
 }
 
-function captureGps(prefix) {
-  const assign = (lat, lng, accuracy) => {
+async function captureGps(prefix) {
+  if (!navigator.geolocation) {
+    toast("GPS is not available on this device");
+    return;
+  }
+
+  toast("Calibrating GPS. Stay still in an open area.");
+  try {
+    const position = await getAccuratePosition(15, 25000);
+    const { latitude, longitude, accuracy } = position.coords;
+    const lat = latitude.toFixed(6);
+    const lng = longitude.toFixed(6);
+    const accuracyText = `${Math.round(accuracy)}m`;
+
     if (prefix === "visit") {
       const field = document.querySelector('input[name="gps"]');
-      if (field) field.value = `${lat}, ${lng}`;
+      if (field) field.value = `${lat}, ${lng} (${accuracyText} accuracy)`;
     } else {
       setField("lat", lat);
       setField("lng", lng);
-      setField("accuracy", accuracy);
+      setField("accuracy", accuracyText);
       const preview = document.querySelector(".map-preview");
-      if (preview) preview.textContent = `${lat}, ${lng}`;
+      if (preview) preview.textContent = `${lat}, ${lng} (${accuracyText})`;
     }
-    toast("GPS location captured");
-  };
-
-  if (!navigator.geolocation) {
-    assign("7.4252", "3.8878", "Demo accuracy 15m");
-    return;
+    toast(`GPS captured within ${accuracyText}`);
+  } catch (error) {
+    toast(error.message || "Could not capture accurate GPS");
   }
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const { latitude, longitude, accuracy } = position.coords;
-      assign(latitude.toFixed(5), longitude.toFixed(5), `${Math.round(accuracy)}m`);
-    },
-    () => assign("7.4252", "3.8878", "Demo accuracy 15m"),
-    { enableHighAccuracy: true, timeout: 5500, maximumAge: 30000 }
-  );
+}
+
+function getAccuratePosition(maxAccuracyMeters, timeoutMs) {
+  return new Promise((resolve, reject) => {
+    let bestPosition = null;
+    let settled = false;
+    let watchId = null;
+    let timer = null;
+    const finish = (callback, value) => {
+      if (settled) return;
+      settled = true;
+      if (watchId !== null) navigator.geolocation.clearWatch(watchId);
+      if (timer) clearTimeout(timer);
+      callback(value);
+    };
+    watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        if (!bestPosition || position.coords.accuracy < bestPosition.coords.accuracy) bestPosition = position;
+        if (position.coords.accuracy <= maxAccuracyMeters) finish(resolve, position);
+      },
+      (error) => finish(reject, new Error(error.message || "GPS permission or signal failed")),
+      { enableHighAccuracy: true, maximumAge: 0, timeout: timeoutMs }
+    );
+    timer = setTimeout(() => {
+      const best = bestPosition?.coords?.accuracy ? Math.round(bestPosition.coords.accuracy) : null;
+      const message = best
+        ? `Best GPS accuracy was ${best}m. Move to an open area and retry.`
+        : "GPS could not get a live fix. Move to an open area and retry.";
+      finish(reject, new Error(message));
+    }, timeoutMs);
+  });
 }
 
 function updateCustomerTable() {
@@ -2710,7 +2864,7 @@ function blankSaleItem() {
 }
 
 function blankComplaint(customerId = "") {
-  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "Broiler Starter", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "", evidenceName: "", evidenceData: "" };
+  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "Broiler Starter", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "", evidenceName: "", evidenceData: "[]", evidenceItems: [] };
 }
 
 function makeId(prefix, collection) {
@@ -2719,6 +2873,11 @@ function makeId(prefix, collection) {
     .map((item) => Number(item))
     .filter(Number.isFinite);
   return `${prefix}${Math.max(0, ...numbers) + 1}`;
+}
+
+function makeEvidenceId() {
+  if (window.crypto?.randomUUID) return `ev-${window.crypto.randomUUID()}`;
+  return `ev-${Date.now()}-${Math.random().toString(16).slice(2)}`;
 }
 
 function setField(name, value) {

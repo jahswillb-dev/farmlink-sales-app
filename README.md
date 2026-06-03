@@ -45,11 +45,18 @@ Only Sales Admin users can open the backend status panel in the app. Regular can
 - Voided records remain in Google Sheets with `voided`, `voidedBy`, and `voidedAt` metadata.
 - After updating Apps Script, open the `/exec?action=setup` URL once so the new void columns are added to existing sheets.
 
-## Complaint Photo Evidence
+## Complaint Evidence
 
-- Complaints can include one compressed photo evidence attachment.
-- The evidence is stored in the `Complaints` sheet using `evidenceName` and `evidenceData` columns.
-- If a photo is too large after compression, choose a smaller image before saving.
+- Complaints can include multiple photo and video evidence files.
+- Photos are compressed before saving; videos must be under 8 MB each.
+- Apps Script uploads evidence files to Google Drive in the `FarmLink Complaint Evidence` folder.
+- The `Complaints` sheet stores `evidenceName` and `evidenceData` metadata with Drive links.
+
+## GPS Accuracy
+
+- GPS capture uses high-accuracy browser location with live calibration.
+- The app only accepts readings with reported accuracy of 15 meters or better.
+- If the device cannot reach 15m accuracy, move to an open area and retry.
 
 ## Offline Sync
 
