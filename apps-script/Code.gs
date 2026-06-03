@@ -3,7 +3,7 @@ const DEFAULT_PASSWORD = "password";
 const TOKEN_TTL_DAYS = 14;
 
 const TABLES = {
-  Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status"],
+  Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status", "username"],
   AuthTokens: ["token", "userId", "createdAt", "expiresAt"],
   Customers: ["id", "farmName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "farmType", "birdType", "capacity", "stock", "pens", "stage", "feedConsumption", "feedBrand", "frequency", "supplier", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt"],
   BirdDetails: ["id", "customerId", "birdType", "breed", "stage", "quantity", "pen", "age", "mortality", "feed", "notes"],
@@ -16,12 +16,12 @@ const TABLES = {
 };
 
 const DEFAULT_USERS = [
-  { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active" },
-  { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active" },
-  { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active" },
-  { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active" },
-  { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active" },
-  { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active" }
+  { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active" },
+  { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active" },
+  { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active" },
+  { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active" },
+  { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active" },
+  { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active" }
 ];
 
 function doGet(e) {
@@ -30,6 +30,7 @@ function doGet(e) {
     if (action === "setup") {
       ensureSheets_();
       seedUsersIfEmpty_();
+      backfillUsernames_();
       return json_({ ok: true, message: "Sheets ready. Default password is: " + DEFAULT_PASSWORD });
     }
     return json_({ ok: true, message: "FarmLink backend online" });
@@ -78,13 +79,14 @@ function doOptions() {
 
 function login_(email, password) {
   seedUsersIfEmpty_();
-  const cleanEmail = String(email || "").trim().toLowerCase();
-  const user = readTable_("Users").find((row) => String(row.email || "").trim().toLowerCase() === cleanEmail);
+  backfillUsernames_();
+  const identity = String(email || "").trim().toLowerCase();
+  const user = readTable_("Users").find((row) => userMatchesIdentity_(row, identity));
   if (!user || String(user.status || "Active").toLowerCase() !== "active") {
-    throw new Error("Invalid email or inactive account");
+    throw new Error("Invalid username/email or inactive account");
   }
   if (!user.passwordHash || user.passwordHash !== hashPassword_(password)) {
-    throw new Error("Invalid email or password");
+    throw new Error("Invalid username/email or password");
   }
 
   const token = createToken_(user.id);
@@ -216,6 +218,11 @@ function sanitizeUser_(user) {
   return clone;
 }
 
+function userMatchesIdentity_(user, identity) {
+  return String(user.email || "").trim().toLowerCase() === identity
+    || String(user.username || "").trim().toLowerCase() === identity;
+}
+
 function requireUser_(token) {
   const cleanToken = String(token || "").trim();
   if (!cleanToken) throw new Error("Missing login token");
@@ -247,20 +254,38 @@ function seedUsersIfEmpty_() {
   writeTable_("Users", DEFAULT_USERS.map((user) => ({ ...user, passwordHash: hashPassword_(DEFAULT_PASSWORD) })));
 }
 
+function backfillUsernames_() {
+  const users = readTable_("Users");
+  let changed = false;
+  users.forEach((user) => {
+    if (!user.username) {
+      user.username = usernameFromEmail_(user.email);
+      changed = true;
+    }
+  });
+  if (changed) writeTable_("Users", users);
+}
+
 function setUserPassword(email, newPassword) {
   ensureSheets_();
-  const cleanEmail = String(email || "").trim().toLowerCase();
+  const identity = String(email || "").trim().toLowerCase();
   const users = readTable_("Users");
-  const index = users.findIndex((user) => String(user.email || "").trim().toLowerCase() === cleanEmail);
+  const index = users.findIndex((user) => userMatchesIdentity_(user, identity));
   if (index < 0) throw new Error("User not found: " + email);
   users[index].passwordHash = hashPassword_(newPassword);
   writeTable_("Users", users);
 }
 
-function upsertUserAccount(id, name, email, password, role, territory, managerId, status) {
+function upsertUserAccount(id, name, email, password, role, territory, managerId, status, username) {
   ensureSheets_();
   const users = readTable_("Users");
-  const index = users.findIndex((user) => user.id === id || String(user.email || "").toLowerCase() === String(email || "").toLowerCase());
+  const cleanEmail = String(email || "").trim().toLowerCase();
+  const cleanUsername = String(username || usernameFromEmail_(email)).trim().toLowerCase();
+  const index = users.findIndex((user) =>
+    user.id === id
+    || String(user.email || "").trim().toLowerCase() === cleanEmail
+    || String(user.username || "").trim().toLowerCase() === cleanUsername
+  );
   const row = {
     id,
     name,
@@ -269,11 +294,16 @@ function upsertUserAccount(id, name, email, password, role, territory, managerId
     role,
     territory,
     managerId: managerId || "",
-    status: status || "Active"
+    status: status || "Active",
+    username: cleanUsername
   };
   if (index >= 0) users[index] = row;
   else users.push(row);
   writeTable_("Users", users);
+}
+
+function usernameFromEmail_(email) {
+  return String(email || "").split("@")[0].replace(/[^a-zA-Z0-9._-]/g, "").toLowerCase();
 }
 
 function hashPassword_(password) {
@@ -321,16 +351,27 @@ function writeTable_(name, rows) {
 
 function rowToObject_(headers, row) {
   return headers.reduce((object, header, index) => {
-    object[header] = cellValue_(row[index]);
+    object[header] = cellValue_(row[index], header);
     return object;
   }, {});
 }
 
-function cellValue_(value) {
+function cellValue_(value, header) {
   if (value instanceof Date) {
+    if (header === "time") return Utilities.formatDate(value, Session.getScriptTimeZone(), "HH:mm");
     return Utilities.formatDate(value, Session.getScriptTimeZone(), "yyyy-MM-dd");
   }
+  if (header === "time") return formatTime_(value);
   return value == null ? "" : value;
+}
+
+function formatTime_(value) {
+  const text = String(value == null ? "" : value).trim();
+  const match = text.match(/(\d{1,2}):(\d{2})/);
+  if (!match) return text;
+  const hours = Math.min(23, Number(match[1]));
+  const minutes = Math.min(59, Number(match[2]));
+  return ("0" + hours).slice(-2) + ":" + ("0" + minutes).slice(-2);
 }
 
 function getOrCreateSheet_(name) {

@@ -34,7 +34,7 @@ Edit `config.js` before deploying or pushing to GitHub Pages:
 window.FARMLINK_BACKEND_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 ```
 
-After connecting the backend URL, users log in with their own email and password. The app receives their role from the `Users` sheet and hides records outside their scope.
+After connecting the backend URL, users log in with their own username or email and password. The app receives their role from the `Users` sheet and hides records outside their scope.
 
 Only Sales Admin users can open the backend status panel in the app. Regular canvassers and area managers do not configure anything in their browsers.
 
@@ -50,18 +50,20 @@ Only Sales Admin users can open the backend status panel in the app. Regular can
 
 Running setup seeds these accounts. The default password is `password`.
 
-- `ada@farmlink.local` - Canvasser
-- `tunde@farmlink.local` - Canvasser
-- `miriam@farmlink.local` - Area Manager
-- `bola@farmlink.local` - Canvasser
-- `grace@farmlink.local` - Area Manager
-- `admin@farmlink.local` - Sales Admin
+- `ada` or `ada@farmlink.local` - Canvasser
+- `tunde` or `tunde@farmlink.local` - Canvasser
+- `miriam` or `miriam@farmlink.local` - Area Manager
+- `bola` or `bola@farmlink.local` - Canvasser
+- `grace` or `grace@farmlink.local` - Area Manager
+- `admin` or `admin@farmlink.local` - Sales Admin
 
 Change passwords in Apps Script by running:
 
 ```js
 setUserPassword("ada@farmlink.local", "new-secure-password");
 ```
+
+You can use either username or email in `setUserPassword`.
 
 Create or update a user account by running:
 
@@ -74,7 +76,8 @@ upsertUserAccount(
   "Canvasser",
   "New Territory",
   "u3",
-  "Active"
+  "Active",
+  "newcanvasser"
 );
 ```
 
@@ -96,6 +99,8 @@ The Apps Script backend creates these tabs:
 - `AuditLogs`
 
 Sales are split into `Sales` and `SaleItems` so multiple product line items can be stored cleanly.
+
+The `Users` sheet stores `username` as the last column so existing sheets can be upgraded without shifting password or role columns.
 
 ## Notes
 

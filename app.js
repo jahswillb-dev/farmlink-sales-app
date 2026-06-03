@@ -28,12 +28,12 @@ const lists = {
 const demoData = {
   currentUser: "Ada Okafor",
   users: [
-    { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active" },
-    { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active" },
-    { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active" },
-    { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active" },
-    { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active" },
-    { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active" }
+    { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active" },
+    { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active" },
+    { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active" },
+    { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active" },
+    { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active" },
+    { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active" }
   ],
   customers: [
     {
@@ -583,7 +583,7 @@ function normalizeBackendState(data) {
     users: data.users || [],
     customers: data.customers || [],
     birdDetails: data.birdDetails || [],
-    visits: data.visits || [],
+    visits: (data.visits || []).map((visit) => ({ ...visit, time: formatTime(visit.time) })),
     followups: data.followups || [],
     sales: (data.sales || []).map((sale) => ({ ...sale, items: sale.items || [] })),
     complaints: data.complaints || [],
@@ -1321,6 +1321,7 @@ function customerTable(rows) {
   if (!rows.length) return emptyState("users", "No customers match the current filters.");
   return `
     <div class="customer-list">
+      ${lineItemHeader(["Customer", "Location / Farm", "Activity"])}
       ${rows.map((customer) => {
         const lastVisit = lastVisitDate(customer.id) || "No visit";
         const openComplaints = state.complaints.filter((complaint) => complaint.customerId === customer.id && !["Closed", "Resolved"].includes(complaint.status)).length;
@@ -1356,6 +1357,7 @@ function compactVisitTable(rows) {
   if (!rows.length) return emptyState("clipboard-list", "No visit records yet.");
   return `
     <div class="customer-list">
+      ${lineItemHeader(["Customer / Visit", "Date / Next Step", "Follow-up"])}
       ${rows.map((visit) => `
         <button type="button" class="customer-row" data-action="open-visit" data-id="${visit.id}" data-customer="${visit.customerId}" aria-label="Open visit for ${escapeAttr(customerName(visit.customerId))}">
           <span class="customer-main">
@@ -1366,7 +1368,7 @@ function compactVisitTable(rows) {
             <span class="customer-subline truncate">${visit.personMet || "Person not recorded"} - ${visit.summary || visit.purpose || "No summary"}</span>
           </span>
           <span class="customer-meta">
-            <span class="truncate"><i data-lucide="calendar-days"></i>${visit.date} ${visit.time || ""} - ${visit.nextStep || "No next action"}</span>
+            <span class="truncate"><i data-lucide="calendar-days"></i>${visit.date} ${formatTime(visit.time) || ""} - ${visit.nextStep || "No next action"}</span>
           </span>
           <span class="customer-side">
             <small>Follow-up: ${visit.followupDate || "None"}</small>
@@ -1383,6 +1385,7 @@ function compactFollowupTable(rows) {
   if (!rows.length) return emptyState("calendar-check", "No action points yet.");
   return `
     <div class="customer-list">
+      ${lineItemHeader(["Customer / Action", "Due / Owner", "Status"])}
       ${rows.map((followup) => `
         <button type="button" class="customer-row" data-action="open-followup" data-id="${followup.id}" data-customer="${followup.customerId}" aria-label="Open follow-up for ${escapeAttr(customerName(followup.customerId))}">
           <span class="customer-main">
@@ -1410,6 +1413,7 @@ function compactSalesTable(rows) {
   if (!rows.length) return emptyState("receipt", "No sales records yet.");
   return `
     <div class="customer-list">
+      ${lineItemHeader(["Customer / Items", "Value / Invoice", "Delivery"])}
       ${rows.map((sale) => {
         const products = sale.items.map((item) => item.product).join(", ");
         const quantity = sale.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -1441,6 +1445,7 @@ function compactComplaintTable(rows) {
   if (!rows.length) return emptyState("message-square-warning", "No complaints recorded.");
   return `
     <div class="customer-list">
+      ${lineItemHeader(["Customer / Complaint", "Date / Details", "Status"])}
       ${rows.map((complaint) => `
         <button type="button" class="customer-row" data-action="open-complaint" data-id="${complaint.id}" data-customer="${complaint.customerId}" aria-label="Open complaint for ${escapeAttr(customerName(complaint.customerId))}">
           <span class="customer-main">
@@ -1460,6 +1465,15 @@ function compactComplaintTable(rows) {
           <i class="customer-chevron" data-lucide="chevron-right"></i>
         </button>
       `).join("")}
+    </div>
+  `;
+}
+
+function lineItemHeader(labels) {
+  return `
+    <div class="customer-list-header" aria-hidden="true">
+      ${labels.map((label) => `<span>${label}</span>`).join("")}
+      <span></span>
     </div>
   `;
 }
@@ -1678,7 +1692,7 @@ function openVisitModal(id = "", customerId = "") {
       <div class="form-grid">
         ${customerSelect("customerId", "Customer Name", visit.customerId)}
         ${input("date", "Visit Date", visit.date, true, "date")}
-        ${input("time", "Visit Time", visit.time, true, "time")}
+        ${input("time", "Visit Time", formatTime(visit.time), true, "time")}
         <div class="field-row full">
           ${input("gps", "GPS Location at Visit", visit.gps)}
           <button class="btn warning" data-action="capture-gps" data-prefix="visit"><i data-lucide="locate-fixed"></i>GPS</button>
@@ -1863,7 +1877,7 @@ function saveVisit() {
   const values = serializeForm(form);
   const id = form.dataset.id || makeId("v", state.visits);
   const existing = state.visits.find((item) => item.id === id);
-  const record = { ...blankVisit(values.customerId), ...existing, ...values, id, createdBy: existing?.createdBy || currentUserName(), updatedAt: today() };
+  const record = { ...blankVisit(values.customerId), ...existing, ...values, id, time: formatTime(values.time), createdBy: existing?.createdBy || currentUserName(), updatedAt: today() };
   upsert("visits", record);
   if (!existing && values.nextStep) {
     upsert("followups", {
@@ -2204,6 +2218,22 @@ function severityBadge(value) {
 
 function money(value) {
   return `N${Number(value || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
+}
+
+function formatTime(value) {
+  if (!value) return "";
+  const text = String(value).trim();
+  const timeMatch = text.match(/(\d{1,2}):(\d{2})/);
+  if (timeMatch) {
+    const hours = Math.min(23, Number(timeMatch[1]));
+    const minutes = Math.min(59, Number(timeMatch[2]));
+    return `${String(hours).padStart(2, "0")}:${String(minutes).padStart(2, "0")}`;
+  }
+  const date = new Date(text);
+  if (!Number.isNaN(date.getTime())) {
+    return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
+  }
+  return text;
 }
 
 function formatNumber(value) {
