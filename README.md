@@ -10,7 +10,7 @@ Static frontend for GitHub Pages with a Google Sheets / Apps Script backend.
 4. Set **Source** to your main branch and root folder.
 5. Open the generated GitHub Pages URL.
 
-The app still works without a backend using local browser storage.
+The live app requires a configured Apps Script backend. IndexedDB browser cache is used only for offline records and pending sync while a logged-in user is disconnected.
 
 ## Google Sheets Backend
 
@@ -28,15 +28,23 @@ The app still works without a backend using local browser storage.
 
 ## Connect The App To Sheets
 
-Option A: edit `config.js`:
+Edit `config.js` before deploying or pushing to GitHub Pages:
 
 ```js
 window.FARMLINK_BACKEND_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec";
 ```
 
-Option B: in the app, click the sync status button in the top header, paste the Apps Script Web App URL, and save.
-
 After connecting the backend URL, users log in with their own email and password. The app receives their role from the `Users` sheet and hides records outside their scope.
+
+Only Sales Admin users can open the backend status panel in the app. Regular canvassers and area managers do not configure anything in their browsers.
+
+## Offline Sync
+
+- Users must log in online at least once.
+- When connected, records are saved to Google Sheets through Apps Script.
+- When offline, records are cached in IndexedDB and marked as pending sync.
+- When the connection returns, the app automatically pushes pending changes to the live backend.
+- The IndexedDB cache is not the database; Google Sheets remains the source of truth.
 
 ## Default Test Accounts
 

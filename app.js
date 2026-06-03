@@ -1,6 +1,7 @@
-const STORAGE_KEY = "farmlink-sales-prototype-v2";
-const BACKEND_URL_KEY = "farmlink-sales-backend-url";
-const BACKEND_DISABLED_KEY = "farmlink-sales-backend-disabled";
+const OFFLINE_DB_NAME = "farmlink-sales-offline-db";
+const OFFLINE_STORE_NAME = "app";
+const OFFLINE_STATE_KEY = "state";
+const PENDING_SYNC_KEY = "pendingSync";
 const SESSION_KEY = "farmlink-sales-session";
 
 const roleProfiles = {
@@ -275,6 +276,12 @@ let backendSync = {
   suppressSave: false
 };
 
+let offlineCache = {
+  ready: false,
+  pending: false
+};
+let offlineDbPromise = null;
+
 let ui = {
   signedIn: false,
   view: "dashboard",
@@ -309,22 +316,26 @@ document.addEventListener("DOMContentLoaded", () => {
     ui.globalSearch = els.globalSearch.value.trim().toLowerCase();
     render();
   });
+  window.addEventListener("online", () => {
+    toast("Connection restored. Syncing pending changes.");
+    syncPendingChanges();
+  });
+  window.addEventListener("offline", () => {
+    updateSyncButton();
+    toast("Offline mode. New records will sync later.");
+  });
 
+  initializeOfflineCache();
   refreshIcons();
 });
 
 function loadState() {
-  try {
-    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null");
-    return saved || structuredClone(demoData);
-  } catch {
-    return structuredClone(demoData);
-  }
+  return structuredClone(demoData);
 }
 
 function loadSession() {
   try {
-    return JSON.parse(localStorage.getItem(SESSION_KEY) || "null");
+    return JSON.parse(sessionStorage.getItem(SESSION_KEY) || "null");
   } catch {
     return null;
   }
@@ -332,8 +343,8 @@ function loadSession() {
 
 function saveSession(session) {
   authSession = session;
-  if (session) localStorage.setItem(SESSION_KEY, JSON.stringify(session));
-  else localStorage.removeItem(SESSION_KEY);
+  if (session) sessionStorage.setItem(SESSION_KEY, JSON.stringify(session));
+  else sessionStorage.removeItem(SESSION_KEY);
 }
 
 function roleKeyForUser(role = "") {
@@ -341,10 +352,6 @@ function roleKeyForUser(role = "") {
   if (normalized.includes("admin")) return "admin";
   if (normalized.includes("manager")) return "manager";
   return "canvasser";
-}
-
-function usingRealAuth() {
-  return backendIsConfigured() && Boolean(authSession?.token && authSession?.user);
 }
 
 async function handleLogin(formData) {
@@ -355,83 +362,164 @@ async function handleLogin(formData) {
     return;
   }
 
-  if (backendIsConfigured()) {
-    backendSync.loading = true;
+  if (!backendIsConfigured()) {
+    toast("Live backend is not configured in config.js");
+    backendSync.lastError = "Missing Apps Script URL";
     updateSyncButton();
-    try {
-      const payload = await postBackend("login", { email, password });
-      if (!payload.ok) throw new Error(payload.error || "Login failed");
-      saveSession({ token: payload.token, user: payload.user });
-      backendSync.suppressSave = true;
-      state = normalizeBackendState(payload.data || {});
-      state.currentUser = payload.user.name;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
-      backendSync.suppressSave = false;
-      ui.role = roleKeyForUser(payload.user.role);
-      ui.regionFilter = "all";
-      ui.canvasserFilter = "all";
-      ui.signedIn = true;
-      els.loginScreen.classList.add("is-hidden");
-      els.appShell.classList.remove("is-hidden");
-      toast(`Welcome ${payload.user.name}`);
-      render();
-      return;
-    } catch (error) {
-      backendSync.lastError = error.message || "Login failed";
-      toast("Login failed. Check the account details.");
-      return;
-    } finally {
-      backendSync.loading = false;
-      updateSyncButton();
-    }
+    return;
   }
 
-  saveSession(null);
-  ui.role = "canvasser";
-  ui.signedIn = true;
-  els.loginScreen.classList.add("is-hidden");
-  els.appShell.classList.remove("is-hidden");
-  toast("Demo mode login");
-  render();
+  backendSync.loading = true;
+  updateSyncButton();
+  try {
+    const payload = await postBackend("login", { email, password });
+    if (!payload.ok) throw new Error(payload.error || "Login failed");
+    saveSession({ token: payload.token, user: payload.user });
+    backendSync.suppressSave = true;
+    state = normalizeBackendState(payload.data || {});
+    state.currentUser = payload.user.name;
+    saveOfflineCache();
+    clearPendingSync();
+    backendSync.suppressSave = false;
+    ui.role = roleKeyForUser(payload.user.role);
+    ui.regionFilter = "all";
+    ui.canvasserFilter = "all";
+    ui.signedIn = true;
+    els.loginScreen.classList.add("is-hidden");
+    els.appShell.classList.remove("is-hidden");
+    toast(`Welcome ${payload.user.name}`);
+    render();
+  } catch (error) {
+    backendSync.lastError = error.message || "Login failed";
+    toast("Login failed. Check the account details.");
+  } finally {
+    backendSync.loading = false;
+    updateSyncButton();
+  }
 }
 
 function saveState() {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  saveOfflineCache();
   queueBackendSave();
 }
 
-function resetState() {
-  state = structuredClone(demoData);
-  saveState();
-  toast("Demo data reset");
-  render();
-}
-
 function backendUrl() {
-  if (localStorage.getItem(BACKEND_DISABLED_KEY) === "1") return "";
-  return (localStorage.getItem(BACKEND_URL_KEY) || window.FARMLINK_BACKEND_URL || "").trim();
+  return (window.FARMLINK_BACKEND_URL || "").trim();
 }
 
 function backendIsConfigured() {
   return Boolean(backendUrl());
 }
 
-function setBackendUrl(url) {
-  const cleanUrl = String(url || "").trim();
-  if (cleanUrl) {
-    localStorage.removeItem(BACKEND_DISABLED_KEY);
-    localStorage.setItem(BACKEND_URL_KEY, cleanUrl);
-  } else {
-    localStorage.setItem(BACKEND_DISABLED_KEY, "1");
-    localStorage.removeItem(BACKEND_URL_KEY);
+function openOfflineDb() {
+  if (offlineDbPromise) return offlineDbPromise;
+  if (!window.indexedDB) return Promise.reject(new Error("IndexedDB is unavailable"));
+
+  offlineDbPromise = new Promise((resolve, reject) => {
+    const request = window.indexedDB.open(OFFLINE_DB_NAME, 1);
+    request.onupgradeneeded = () => {
+      const db = request.result;
+      if (!db.objectStoreNames.contains(OFFLINE_STORE_NAME)) db.createObjectStore(OFFLINE_STORE_NAME);
+    };
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Could not open offline cache"));
+  });
+
+  return offlineDbPromise;
+}
+
+async function readOfflineValue(key) {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(OFFLINE_STORE_NAME, "readonly").objectStore(OFFLINE_STORE_NAME).get(key);
+    request.onsuccess = () => resolve(request.result);
+    request.onerror = () => reject(request.error || new Error("Could not read offline cache"));
+  });
+}
+
+async function writeOfflineValue(key, value) {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(OFFLINE_STORE_NAME, "readwrite").objectStore(OFFLINE_STORE_NAME).put(value, key);
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => reject(request.error || new Error("Could not write offline cache"));
+  });
+}
+
+async function deleteOfflineValue(key) {
+  const db = await openOfflineDb();
+  return new Promise((resolve, reject) => {
+    const request = db.transaction(OFFLINE_STORE_NAME, "readwrite").objectStore(OFFLINE_STORE_NAME).delete(key);
+    request.onsuccess = () => resolve(true);
+    request.onerror = () => reject(request.error || new Error("Could not clear offline cache"));
+  });
+}
+
+async function initializeOfflineCache() {
+  try {
+    const [cachedState, pendingSync] = await Promise.all([
+      readOfflineValue(OFFLINE_STATE_KEY),
+      readOfflineValue(PENDING_SYNC_KEY)
+    ]);
+    offlineCache.pending = Boolean(pendingSync);
+    offlineCache.ready = true;
+    if (backendIsConfigured() && authSession?.user && cachedState) {
+      backendSync.suppressSave = true;
+      state = normalizeBackendState(cachedState);
+      state.currentUser = authSession.user.name;
+      backendSync.suppressSave = false;
+      ui.role = roleKeyForUser(authSession.user.role);
+      ui.regionFilter = "all";
+      ui.canvasserFilter = "all";
+      ui.signedIn = true;
+      els.loginScreen.classList.add("is-hidden");
+      els.appShell.classList.remove("is-hidden");
+      render();
+      if (navigator.onLine === false) toast("Offline session restored");
+      else pullBackendState({ silent: true }).then(() => render());
+    }
+  } catch (error) {
+    backendSync.lastError = error.message || "Offline cache unavailable";
+  } finally {
+    updateSyncButton();
   }
 }
 
+function saveOfflineCache() {
+  writeOfflineValue(OFFLINE_STATE_KEY, state).catch((error) => {
+    backendSync.lastError = error.message || "Offline cache unavailable";
+    updateSyncButton();
+  });
+}
+
+function markPendingSync() {
+  offlineCache.pending = true;
+  writeOfflineValue(PENDING_SYNC_KEY, { pending: true, updatedAt: new Date().toISOString() }).catch((error) => {
+    backendSync.lastError = error.message || "Pending sync queue unavailable";
+    updateSyncButton();
+  });
+}
+
+function clearPendingSync() {
+  offlineCache.pending = false;
+  deleteOfflineValue(PENDING_SYNC_KEY).catch(() => {});
+}
+
+function hasPendingSync() {
+  return offlineCache.pending;
+}
+
+function canSyncNow() {
+  return backendIsConfigured() && Boolean(authSession?.token) && navigator.onLine !== false;
+}
+
 function backendStatusText() {
-  if (!backendIsConfigured()) return "Local";
+  if (!backendIsConfigured()) return "No backend";
+  if (navigator.onLine === false) return hasPendingSync() ? "Offline changes" : "Offline";
   if (backendSync.loading) return "Loading";
   if (backendSync.saving) return "Saving";
   if (backendSync.lastError) return "Sync issue";
+  if (hasPendingSync()) return "Pending sync";
   if (backendSync.lastSavedAt) return "Synced";
   return "Sheet ready";
 }
@@ -465,17 +553,18 @@ async function pullBackendState(options = {}) {
       backendSync.suppressSave = true;
       state = normalizeBackendState(payload.data);
       state.currentUser = authSession.user.name;
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      saveOfflineCache();
+      clearPendingSync();
       backendSync.suppressSave = false;
       if (!options.silent) toast("Loaded from Google Sheets");
       return true;
     }
 
-    if (!options.silent) toast("Google Sheet is empty. Push local demo data to seed it.");
+    if (!options.silent) toast("No records are available for this account yet.");
     return false;
   } catch (error) {
     backendSync.lastError = error.message || "Backend load failed";
-    if (!options.silent) toast("Could not load Google Sheet. Using local data.");
+    if (!options.silent) toast("Could not load Google Sheet. Showing offline cache.");
     return false;
   } finally {
     backendSync.loading = false;
@@ -503,7 +592,12 @@ function normalizeBackendState(data) {
 }
 
 function queueBackendSave() {
-  if (!backendIsConfigured() || !authSession?.token || backendSync.suppressSave) return;
+  if (backendSync.suppressSave) return;
+  markPendingSync();
+  if (!canSyncNow()) {
+    updateSyncButton();
+    return;
+  }
   clearTimeout(backendSync.saveTimer);
   backendSync.saveTimer = setTimeout(() => {
     pushBackendState({ silent: true });
@@ -513,11 +607,19 @@ function queueBackendSave() {
 
 async function pushBackendState(options = {}) {
   if (!backendIsConfigured()) {
-    if (!options.silent) openBackendSettingsModal();
+    markPendingSync();
+    if (!options.silent) toast("Backend URL is missing from config.js");
     return false;
   }
   if (!authSession?.token) {
+    markPendingSync();
     if (!options.silent) toast("Login required before saving to Google Sheets");
+    return false;
+  }
+  if (navigator.onLine === false) {
+    markPendingSync();
+    if (!options.silent) toast("Offline. Changes will sync when connected.");
+    updateSyncButton();
     return false;
   }
 
@@ -527,10 +629,19 @@ async function pushBackendState(options = {}) {
   try {
     const payload = await postBackend("saveAll", { token: authSession.token, data: state });
     if (!payload.ok) throw new Error(payload.error || "Backend save failed");
+    if (payload.data) {
+      backendSync.suppressSave = true;
+      state = normalizeBackendState(payload.data);
+      state.currentUser = authSession.user.name;
+      saveOfflineCache();
+      backendSync.suppressSave = false;
+    }
+    clearPendingSync();
     backendSync.lastSavedAt = new Date().toLocaleTimeString();
     if (!options.silent) toast("Saved to Google Sheets");
     return true;
   } catch (error) {
+    markPendingSync();
     backendSync.lastError = error.message || "Backend save failed";
     if (!options.silent) toast("Could not save to Google Sheets");
     return false;
@@ -538,6 +649,14 @@ async function pushBackendState(options = {}) {
     backendSync.saving = false;
     updateSyncButton();
   }
+}
+
+async function syncPendingChanges() {
+  if (!hasPendingSync() || !canSyncNow() || backendSync.loading || backendSync.saving) {
+    updateSyncButton();
+    return false;
+  }
+  return pushBackendState({ silent: true });
 }
 
 async function postBackend(action, body = {}) {
@@ -551,44 +670,42 @@ async function postBackend(action, body = {}) {
 }
 
 function openBackendSettingsModal() {
+  if (!isSalesAdmin()) {
+    toast("Backend settings are for Sales Admin only");
+    return;
+  }
   openModal("Google Sheets Backend", `
-    <form id="backendSettingsForm">
-      <div class="form-grid">
-        ${input("backendUrl", "Apps Script Web App URL", backendUrl(), false, "url")}
-        <div class="fact">
-          <span>Current Mode</span>
-          <strong>${backendIsConfigured() ? "Google Sheets sync" : "Local demo storage"}</strong>
-        </div>
-        <div class="fact">
-          <span>Status</span>
-          <strong>${backendSync.lastError || backendStatusText()}</strong>
-        </div>
-        <div class="fact">
-          <span>Last Saved</span>
-          <strong>${backendSync.lastSavedAt || "Not yet"}</strong>
-        </div>
+    <div class="form-grid">
+      <div class="fact full">
+        <span>Configured Web App URL</span>
+        <strong>${backendUrl() || "Not set in config.js"}</strong>
       </div>
-    </form>
+      <div class="fact">
+        <span>Current Mode</span>
+        <strong>${backendIsConfigured() ? "Live Google Sheets sync" : "Backend not configured"}</strong>
+      </div>
+      <div class="fact">
+        <span>Status</span>
+        <strong>${backendSync.lastError || backendStatusText()}</strong>
+      </div>
+      <div class="fact">
+        <span>Offline Queue</span>
+        <strong>${hasPendingSync() ? "Pending changes" : "Clear"}</strong>
+      </div>
+      <div class="fact">
+        <span>Last Saved</span>
+        <strong>${backendSync.lastSavedAt || "Not yet"}</strong>
+      </div>
+      <p class="form-note full">The live backend URL is set globally in config.js before deployment. Users only log in; they do not configure a backend in their browser.</p>
+    </div>
   `, {
     size: "small",
     footer: `
-      <button class="btn danger" data-action="clear-backend"><i data-lucide="unlink"></i>Use Local</button>
       <button class="btn" data-action="pull-backend"><i data-lucide="cloud-download"></i>Pull</button>
       <button class="btn" data-action="push-backend"><i data-lucide="cloud-upload"></i>Push</button>
-      <button class="btn primary" data-action="save-backend-settings"><i data-lucide="save"></i>Save URL</button>
+      <button class="btn primary" data-action="close-modal">Done</button>
     `
   });
-}
-
-function saveBackendSettings() {
-  const form = document.getElementById("backendSettingsForm");
-  const values = form ? serializeForm(form) : {};
-  setBackendUrl(values.backendUrl || "");
-  backendSync.lastError = "";
-  closeModal();
-  updateSyncButton();
-  toast(backendIsConfigured() ? "Backend URL saved" : "Using local demo storage");
-  if (backendIsConfigured() && authSession?.token) pullBackendState({ silent: true }).then(() => render());
 }
 
 function currentUserProfile() {
@@ -603,6 +720,10 @@ function currentUserName() {
 
 function currentRoleLabel() {
   return currentUserProfile()?.role || "Canvasser";
+}
+
+function isSalesAdmin() {
+  return roleKeyForUser(currentRoleLabel()) === "admin";
 }
 
 function areaManagers() {
@@ -754,14 +875,7 @@ function renderAccessBar() {
         <span>${money(data.sales.reduce((sum, sale) => sum + saleTotal(sale), 0))} sales</span>
       </div>
       ${renderScopeFilters()}
-      <button class="btn subtle access-backend" data-action="open-backend-settings"><i data-lucide="database"></i>${backendStatusText()}</button>
-      ${usingRealAuth() ? "" : `
-        <div class="role-switch access-switch" aria-label="Access role view">
-          <button data-role="canvasser" class="${ui.role === "canvasser" ? "active" : ""}">Canvasser</button>
-          <button data-role="manager" class="${ui.role === "manager" ? "active" : ""}">Area Manager</button>
-          <button data-role="admin" class="${ui.role === "admin" ? "active" : ""}">Sales Admin</button>
-        </div>
-      `}
+      ${isSalesAdmin() ? `<button class="btn subtle access-backend" data-action="open-backend-settings"><i data-lucide="database"></i>${backendStatusText()}</button>` : ""}
     </section>
   `;
 }
@@ -795,7 +909,7 @@ function renderScopeFilters() {
 
 function syncChrome() {
   document.querySelectorAll(".topbar .role-switch").forEach((switcher) => {
-    switcher.classList.toggle("is-hidden", usingRealAuth());
+    switcher.classList.add("is-hidden");
   });
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === ui.view);
@@ -817,15 +931,7 @@ function handleClick(event) {
 
   const roleButton = event.target.closest("[data-role]");
   if (roleButton) {
-    if (usingRealAuth()) {
-      toast("Role is controlled by the logged-in account");
-      return;
-    }
-    ui.role = roleButton.dataset.role;
-    ui.regionFilter = "all";
-    ui.canvasserFilter = "all";
-    closeModal();
-    render();
+    toast("Role is controlled by the logged-in account");
     return;
   }
 
@@ -961,21 +1067,8 @@ function runAction(action, data) {
     case "close-modal":
       closeModal();
       break;
-    case "reset-demo":
-      resetState();
-      break;
     case "open-backend-settings":
       openBackendSettingsModal();
-      break;
-    case "save-backend-settings":
-      saveBackendSettings();
-      break;
-    case "clear-backend":
-      setBackendUrl("");
-      backendSync.lastError = "";
-      closeModal();
-      updateSyncButton();
-      toast("Using local demo storage");
       break;
     case "pull-backend":
       pullBackendState().then(() => {
@@ -1089,9 +1182,6 @@ function renderCustomers() {
       ${select("birdFilter", lists.farmTypes, "", "All bird types", "data-customer-filter-select")}
       ${select("statusFilter", lists.categories, "", "All statuses", "data-customer-filter-select")}
       <input data-customer-filter-select id="lastVisitFilter" type="date" title="Last visit after" />
-      <div class="toolbar-actions">
-        <button class="btn subtle" data-action="reset-demo"><i data-lucide="rotate-ccw"></i>Reset</button>
-      </div>
     </section>
 
     <section class="panel">
