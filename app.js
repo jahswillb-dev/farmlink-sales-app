@@ -1900,11 +1900,11 @@ function openSaleModal(id = "", customerId = "") {
         ${selectField("feedType", "Feed Type", ["Starter", "Grower", "Finisher", "Layer Mash", "Broiler Feed", "Concentrate", "Breeder"], item.feedType)}
         ${input("quantity", "Quantity Sold", item.quantity, true, "number", "data-autototal")}
         ${selectField("unit", "Unit of Measurement", ["Bags", "Kg", "Tons"], item.unit)}
-        ${input("unitPrice", "Unit Price", item.unitPrice, true, "number", "data-autototal")}
+        ${input("unitPrice", "Unit Price (₦)", item.unitPrice, true, "number", "data-autototal")}
       </div>
       <div class="section-title"><h3>Total Value</h3></div>
       <div class="mini-grid">
-        ${fact("Formula", "Quantity Sold x Unit Price")}
+        ${fact("Formula", "Quantity Sold x Unit Price (₦)")}
         ${fact("Calculated Total", `<span id="saleTotalPreview">${money(Number(item.quantity || 0) * Number(item.unitPrice || 0))}</span>`)}
         ${fact("Delivery", sale.deliveryStatus)}
       </div>
@@ -2632,7 +2632,7 @@ function severityBadge(value) {
 }
 
 function money(value) {
-  return `N${Number(value || 0).toLocaleString("en-NG", { maximumFractionDigits: 0 })}`;
+  return `₦${Number(value || 0).toLocaleString("en-NG", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 function formatTime(value) {

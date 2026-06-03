@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>FarmLink Sales Prototype</title>
+    <link rel="icon" type="image/png" href="assets/farmlink-logo-mark.png" />
     <link rel="stylesheet" href="styles.css" />
     <script src="https://unpkg.com/lucide@0.468.0/dist/umd/lucide.min.js" defer></script>
     <script src="config.js" defer></script>
@@ -12,17 +13,18 @@
   <body>
     <section class="login-screen" id="loginScreen">
       <div class="login-card">
-        <div class="brand-mark">
-          <span class="brand-icon">F</span>
-          <div>
-            <strong>FarmLink Sales</strong>
-            <small>Feed canvasser field system</small>
-          </div>
+        <div class="brand-mark login-brand">
+          <img class="brand-logo brand-logo-full" src="assets/farmlink-logo-full.png" alt="FarmLink Sales - Sales Canvasser Console" />
+        </div>
+
+        <div class="login-copy">
+          <h1>Welcome Back!</h1>
+          <p>Sign in to access your FarmLink Sales Console.</p>
         </div>
 
         <form class="login-form" id="loginForm">
           <label>
-            Username / Email
+            Email or Username
             <input type="text" name="email" placeholder="username or name@company.com" autocomplete="username" required />
           </label>
           <label>
@@ -31,7 +33,7 @@
           </label>
           <button type="submit" class="btn primary wide">
             <i data-lucide="log-in"></i>
-            Login
+            Sign In
           </button>
           <button type="button" class="link-button">Forgot password</button>
         </form>
@@ -50,11 +52,7 @@
     <section class="app-shell is-hidden" id="appShell">
       <aside class="sidebar">
         <div class="brand-mark sidebar-brand">
-          <span class="brand-icon">F</span>
-          <div>
-            <strong>FarmLink Sales</strong>
-            <small>Canvasser console</small>
-          </div>
+          <img class="brand-logo sidebar-logo" src="assets/farmlink-logo-full.png" alt="FarmLink Sales" />
         </div>
 
         <nav class="nav-list" aria-label="Main navigation">
