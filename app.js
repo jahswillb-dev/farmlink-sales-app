@@ -984,6 +984,10 @@ function handleInput(event) {
 }
 
 function handleChange(event) {
+  if (event.target.matches("[data-evidence-input]")) {
+    updateEvidencePreview(event.target);
+    return;
+  }
   if (event.target.matches("[data-scope-filter]")) {
     if (event.target.id === "regionScopeFilter") {
       ui.regionFilter = event.target.value;
@@ -1085,6 +1089,9 @@ function runAction(action, data) {
       break;
     case "capture-gps":
       captureGps(data.prefix || "");
+      break;
+    case "remove-evidence":
+      removeEvidencePreview();
       break;
     case "close-modal":
       closeModal();
@@ -1482,7 +1489,10 @@ function compactComplaintTable(rows) {
           </span>
           <span class="customer-side">
             <small>${complaint.assignedTo || "Unassigned"}</small>
-            <span class="customer-badges">${statusBadge(complaint.status)}</span>
+            <span class="customer-badges">
+              ${hasEvidence(complaint) ? statusBadge("Photo", "active") : ""}
+              ${statusBadge(complaint.status)}
+            </span>
           </span>
           <i class="customer-chevron" data-lucide="chevron-right"></i>
         </button>
@@ -1507,6 +1517,10 @@ function isVoided(record) {
 
 function recordStatusBadge(record, fallback) {
   return isVoided(record) ? statusBadge("Voided", "voided") : fallback;
+}
+
+function hasEvidence(record) {
+  return Boolean(record?.evidenceData);
 }
 
 function voidNotice(record) {
@@ -1885,6 +1899,7 @@ function openComplaintModal(id = "", customerId = "") {
         ${textarea("description", "Complaint Description", complaint.description, "full")}
         ${textarea("actionTaken", "Immediate Action Taken", complaint.actionTaken, "full")}
         ${textarea("resolutionNotes", "Resolution Notes", complaint.resolutionNotes, "full")}
+        ${complaintEvidenceField(complaint)}
       </div>
     </form>
   `, {
@@ -1895,6 +1910,27 @@ function openComplaintModal(id = "", customerId = "") {
       <button class="btn primary" data-action="save-complaint"><i data-lucide="save"></i>Save</button>
     `
   });
+}
+
+function complaintEvidenceField(complaint) {
+  return `
+    <div class="evidence-panel full">
+      <div class="evidence-preview" id="complaintEvidencePreview">
+        ${hasEvidence(complaint)
+          ? `<img src="${escapeAttr(complaint.evidenceData)}" alt="Complaint photo evidence" />`
+          : `<span>No photo attached</span>`}
+      </div>
+      <label>
+        Photo Evidence
+        <input name="evidencePhoto" type="file" accept="image/*" data-evidence-input />
+      </label>
+      <input type="hidden" name="evidenceRemoved" value="" />
+      <div class="evidence-actions">
+        <span>${complaint.evidenceName || "Image will be compressed before saving"}</span>
+        ${hasEvidence(complaint) ? `<button type="button" class="btn subtle" data-action="remove-evidence"><i data-lucide="x"></i>Remove Photo</button>` : ""}
+      </div>
+    </div>
+  `;
 }
 
 function saveCustomer() {
@@ -2016,18 +2052,44 @@ function saveSale() {
   render();
 }
 
-function saveComplaint() {
+async function saveComplaint() {
   const form = document.getElementById("complaintForm");
   if (!form.reportValidity()) return;
   const values = serializeForm(form);
   const id = form.dataset.id || makeId("cp", state.complaints);
   const existing = state.complaints.find((item) => item.id === id);
-  upsert("complaints", { ...blankComplaint(values.customerId), ...existing, ...values, id });
+  const evidence = await complaintEvidencePayload(form, existing);
+  if (!evidence) return;
+  delete values.evidencePhoto;
+  delete values.evidenceRemoved;
+  upsert("complaints", { ...blankComplaint(values.customerId), ...existing, ...values, ...evidence, id });
   audit(values.customerId, existing ? "Edited complaint status/details" : "Recorded complaint");
   saveState();
   closeModal();
   toast("Complaint saved");
   render();
+}
+
+async function complaintEvidencePayload(form, existing) {
+  const file = form.elements.evidencePhoto?.files?.[0];
+  if (file) {
+    try {
+      return {
+        evidenceName: file.name,
+        evidenceData: await compressImageFile(file)
+      };
+    } catch (error) {
+      toast(error.message || "Could not attach photo evidence");
+      return null;
+    }
+  }
+  if (form.elements.evidenceRemoved?.value === "1") {
+    return { evidenceName: "", evidenceData: "" };
+  }
+  return {
+    evidenceName: existing?.evidenceName || "",
+    evidenceData: existing?.evidenceData || ""
+  };
 }
 
 function deleteRecord(collection, id) {
@@ -2106,6 +2168,82 @@ function openModal(title, body, options = {}) {
 
 function closeModal() {
   els.modalRoot.innerHTML = "";
+}
+
+function updateEvidencePreview(inputNode) {
+  const file = inputNode.files?.[0];
+  const preview = document.getElementById("complaintEvidencePreview");
+  const removedField = document.querySelector('input[name="evidenceRemoved"]');
+  if (!preview || !file) return;
+  if (removedField) removedField.value = "";
+  if (preview.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+
+  const url = URL.createObjectURL(file);
+  preview.innerHTML = `<img src="${url}" alt="Selected complaint photo evidence" />`;
+  preview.dataset.objectUrl = url;
+}
+
+function removeEvidencePreview() {
+  const preview = document.getElementById("complaintEvidencePreview");
+  const inputNode = document.querySelector('input[name="evidencePhoto"]');
+  const removedField = document.querySelector('input[name="evidenceRemoved"]');
+  if (preview?.dataset.objectUrl) URL.revokeObjectURL(preview.dataset.objectUrl);
+  if (preview) {
+    preview.innerHTML = "<span>No photo attached</span>";
+    delete preview.dataset.objectUrl;
+  }
+  if (inputNode) inputNode.value = "";
+  if (removedField) removedField.value = "1";
+}
+
+async function compressImageFile(file) {
+  if (!file.type.startsWith("image/")) throw new Error("Select an image file for evidence");
+  const source = await fileToDataUrl(file);
+  const image = await loadImage(source);
+  const attempts = [
+    { max: 720, quality: 0.64 },
+    { max: 540, quality: 0.58 },
+    { max: 420, quality: 0.52 },
+    { max: 320, quality: 0.48 }
+  ];
+
+  let result = "";
+  for (const attempt of attempts) {
+    result = drawCompressedImage(image, attempt.max, attempt.quality);
+    if (result.length <= 45000) return result;
+  }
+  if (result.length > 50000) throw new Error("Photo is too large. Choose a smaller image.");
+  return result;
+}
+
+function fileToDataUrl(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error("Could not read selected photo"));
+    reader.readAsDataURL(file);
+  });
+}
+
+function loadImage(src) {
+  return new Promise((resolve, reject) => {
+    const image = new Image();
+    image.onload = () => resolve(image);
+    image.onerror = () => reject(new Error("Could not load selected photo"));
+    image.src = src;
+  });
+}
+
+function drawCompressedImage(image, maxSize, quality) {
+  const scale = Math.min(1, maxSize / Math.max(image.naturalWidth || image.width, image.naturalHeight || image.height));
+  const width = Math.max(1, Math.round((image.naturalWidth || image.width) * scale));
+  const height = Math.max(1, Math.round((image.naturalHeight || image.height) * scale));
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const context = canvas.getContext("2d");
+  context.drawImage(image, 0, 0, width, height);
+  return canvas.toDataURL("image/jpeg", quality);
 }
 
 function captureGps(prefix) {
@@ -2572,7 +2710,7 @@ function blankSaleItem() {
 }
 
 function blankComplaint(customerId = "") {
-  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "Broiler Starter", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "" };
+  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "Broiler Starter", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "", evidenceName: "", evidenceData: "" };
 }
 
 function makeId(prefix, collection) {

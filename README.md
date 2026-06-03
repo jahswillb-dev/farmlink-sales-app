@@ -45,6 +45,12 @@ Only Sales Admin users can open the backend status panel in the app. Regular can
 - Voided records remain in Google Sheets with `voided`, `voidedBy`, and `voidedAt` metadata.
 - After updating Apps Script, open the `/exec?action=setup` URL once so the new void columns are added to existing sheets.
 
+## Complaint Photo Evidence
+
+- Complaints can include one compressed photo evidence attachment.
+- The evidence is stored in the `Complaints` sheet using `evidenceName` and `evidenceData` columns.
+- If a photo is too large after compression, choose a smaller image before saving.
+
 ## Offline Sync
 
 - Users must log in online at least once.

@@ -11,7 +11,7 @@ const TABLES = {
   Followups: ["id", "customerId", "visitId", "action", "responsible", "priority", "dueDate", "status", "completionNotes", "dateCompleted", "voided", "voidedBy", "voidedAt"],
   Sales: ["id", "customerId", "visitId", "date", "paymentStatus", "deliveryStatus", "invoice", "notes", "createdBy", "voided", "voidedBy", "voidedAt"],
   SaleItems: ["id", "saleId", "product", "category", "feedType", "quantity", "unit", "unitPrice"],
-  Complaints: ["id", "customerId", "date", "category", "product", "batch", "quantity", "description", "severity", "actionTaken", "assignedTo", "status", "resolutionNotes", "dateResolved", "voided", "voidedBy", "voidedAt"],
+  Complaints: ["id", "customerId", "date", "category", "product", "batch", "quantity", "description", "severity", "actionTaken", "assignedTo", "status", "resolutionNotes", "dateResolved", "voided", "voidedBy", "voidedAt", "evidenceName", "evidenceData"],
   AuditLogs: ["id", "customerId", "action", "user", "date"]
 };
 
