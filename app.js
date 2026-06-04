@@ -375,17 +375,18 @@ async function handleLogin(formData) {
   }
 
   backendSync.loading = true;
-  showLoading("Signing in", "Loading your workspace and latest Google Sheets records.");
+  showLoading("Signing in", "Checking your account and permissions.");
   updateSyncButton();
   try {
-    const payload = await postBackend("login", { email, password });
+    const payload = await postBackend("login", { email, password, includeData: false });
     if (!payload.ok) throw new Error(payload.error || "Login failed");
     saveSession({ token: payload.token, user: payload.user });
     backendSync.suppressSave = true;
-    state = normalizeBackendState(payload.data || {});
+    const cachedState = await cachedStateForUser(payload.user);
+    state = normalizeBackendState(payload.data || cachedState || { currentUser: payload.user.name, users: [payload.user] });
     state.currentUser = payload.user.name;
     saveOfflineCache();
-    clearPendingSync();
+    if (payload.data) clearPendingSync();
     backendSync.suppressSave = false;
     ui.role = roleKeyForUser(payload.user.role);
     ui.regionFilter = "all";
@@ -395,6 +396,10 @@ async function handleLogin(formData) {
     els.appShell.classList.remove("is-hidden");
     toast(`Welcome ${payload.user.name}`);
     render();
+    const syncAfterLogin = hasPendingSync()
+      ? pushBackendState({ silent: true, loadingMessage: "Syncing pending offline changes." })
+      : pullBackendState({ silent: true, loadingMessage: "Loading latest Google Sheets records." });
+    syncAfterLogin.then(() => render());
   } catch (error) {
     backendSync.lastError = error.message || "Login failed";
     toast("Login failed. Check the account details.");
@@ -403,6 +408,18 @@ async function handleLogin(formData) {
     hideLoading();
     updateSyncButton();
   }
+}
+
+async function cachedStateForUser(user) {
+  try {
+    const cachedState = await readOfflineValue(OFFLINE_STATE_KEY);
+    if (!cachedState) return null;
+    if (cachedState.currentUser === user.name) return cachedState;
+    if ((cachedState.users || []).some((item) => item.id === user.id)) return cachedState;
+  } catch {
+    return null;
+  }
+  return null;
 }
 
 function saveState() {
@@ -636,7 +653,7 @@ function queueBackendSave() {
   }
   clearTimeout(backendSync.saveTimer);
   backendSync.saveTimer = setTimeout(() => {
-    pushBackendState({ silent: true, loadingMessage: "Saving record to Google Sheets." });
+    pushBackendState({ silent: true, returnData: false });
   }, 650);
   updateSyncButton();
 }
@@ -664,7 +681,7 @@ async function pushBackendState(options = {}) {
   if (!options.silent || options.loadingMessage) showLoading("Saving", options.loadingMessage || "Saving changes to Google Sheets.");
   updateSyncButton();
   try {
-    const payload = await postBackend("saveAll", { token: authSession.token, data: stateForBackend() });
+    const payload = await postBackend("saveAll", { token: authSession.token, data: stateForBackend(), returnData: options.returnData !== false });
     if (!payload.ok) throw new Error(payload.error || "Backend save failed");
     if (payload.data) {
       backendSync.suppressSave = true;

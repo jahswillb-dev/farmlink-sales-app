@@ -46,7 +46,7 @@ function doPost(e) {
     ensureSheets_();
 
     if (body.action === "login") {
-      return json_(login_(body.email, body.password));
+      return json_(login_(body.email, body.password, body.includeData !== false));
     }
 
     const user = requireUser_(body.token);
@@ -87,7 +87,9 @@ function doPost(e) {
       } finally {
         lock.releaseLock();
       }
-      return json_({ ok: true, savedAt: new Date().toISOString(), data: loadScoped_(user) });
+      const response = { ok: true, savedAt: new Date().toISOString() };
+      if (body.returnData !== false) response.data = loadScoped_(user);
+      return json_(response);
     }
     if (body.action === "logout") {
       removeToken_(body.token);
@@ -104,7 +106,7 @@ function doOptions() {
   return json_({ ok: true });
 }
 
-function login_(email, password) {
+function login_(email, password, includeData) {
   seedUsersIfEmpty_();
   backfillUsernames_();
   const identity = String(email || "").trim().toLowerCase();
@@ -117,12 +119,13 @@ function login_(email, password) {
   }
 
   const token = createToken_(user.id);
-  return {
+  const response = {
     ok: true,
     token,
-    user: sanitizeUser_(user),
-    data: loadScoped_(user)
+    user: sanitizeUser_(user)
   };
+  if (includeData) response.data = loadScoped_(user);
+  return response;
 }
 
 function loadScoped_(user) {
