@@ -880,7 +880,8 @@ function render() {
   };
   if (ui.view === "users" && !isSalesAdmin()) ui.view = "dashboard";
   state.currentUser = currentUserName();
-  els.main.innerHTML = `${renderAccessBar()}${(views[ui.view] || renderDashboard)()}`;
+  const accessBar = ui.view === "users" ? "" : renderAccessBar();
+  els.main.innerHTML = `${accessBar}${(views[ui.view] || renderDashboard)()}`;
   refreshIcons();
   updateSyncButton();
 }
@@ -1126,6 +1127,9 @@ function runAction(action, data) {
       break;
     case "toggle-user-status":
       toggleUserStatus(id);
+      break;
+    case "delete-user":
+      deleteUserAccount(id);
       break;
     case "new-complaint":
       openComplaintModal("", customerId);
@@ -2067,6 +2071,7 @@ function openUserModal(id = "") {
   `, {
     size: "wide",
     footer: `
+      ${!isNew && !isCurrentUser ? `<button class="btn danger" data-action="delete-user" data-id="${user.id}"><i data-lucide="trash-2"></i>Delete User</button>` : ""}
       ${!isNew && !isCurrentUser ? `<button class="btn ${user.status === "Inactive" ? "warning" : "danger"}" data-action="toggle-user-status" data-id="${user.id}"><i data-lucide="${user.status === "Inactive" ? "user-check" : "user-x"}"></i>${user.status === "Inactive" ? "Activate" : "Deactivate"}</button>` : ""}
       <button class="btn" data-action="close-modal">Close</button>
       <button class="btn primary" data-action="save-user"><i data-lucide="save"></i>Save User</button>
@@ -2334,6 +2339,25 @@ async function toggleUserStatus(id) {
   }, "");
 }
 
+async function deleteUserAccount(id) {
+  if (!isSalesAdmin()) {
+    toast("Only Sales Admin can delete users");
+    return;
+  }
+  const user = state.users.find((item) => item.id === id);
+  if (!user) {
+    toast("User account not found");
+    return;
+  }
+  const blocker = userDeleteBlocker(user);
+  if (blocker) {
+    toast(blocker);
+    return;
+  }
+  if (!window.confirm(`Permanently delete ${user.name}? This removes the account from the Users sheet.`)) return;
+  await persistUserDeletion(id);
+}
+
 async function persistUserAccount(user, password) {
   if (!backendIsConfigured() || !authSession?.token) {
     toast("Login to the live backend before managing users");
@@ -2384,6 +2408,56 @@ async function persistUserAccount(user, password) {
   }
 }
 
+async function persistUserDeletion(id) {
+  if (!backendIsConfigured() || !authSession?.token) {
+    toast("Login to the live backend before deleting users");
+    return false;
+  }
+  if (navigator.onLine === false) {
+    toast("User deletion requires an internet connection");
+    return false;
+  }
+  if (hasPendingSync()) {
+    const synced = await pushBackendState({ silent: true });
+    if (!synced) {
+      toast("Sync pending records before deleting users");
+      return false;
+    }
+  }
+
+  backendSync.saving = true;
+  backendSync.lastError = "";
+  updateSyncButton();
+  try {
+    const token = authSession.token;
+    const payload = await postBackend("deleteUser", { token, userId: id });
+    if (!payload.ok) throw new Error(payload.error || "User delete failed");
+    if (payload.user) {
+      saveSession({ token, user: payload.user });
+      ui.role = roleKeyForUser(payload.user.role);
+    }
+    if (payload.data) {
+      backendSync.suppressSave = true;
+      state = normalizeBackendState(payload.data);
+      state.currentUser = payload.user?.name || authSession.user?.name || state.currentUser;
+      saveOfflineCache();
+      backendSync.suppressSave = false;
+    }
+    backendSync.lastSavedAt = formatTime(new Date());
+    closeModal();
+    toast("User account deleted");
+    render();
+    return true;
+  } catch (error) {
+    backendSync.lastError = error.message || "User delete failed";
+    toast(error.message || "Could not delete user account");
+    return false;
+  } finally {
+    backendSync.saving = false;
+    updateSyncButton();
+  }
+}
+
 function hasUserIdentityConflict(user) {
   const email = user.email.trim().toLowerCase();
   const username = user.username.trim().toLowerCase();
@@ -2395,6 +2469,17 @@ function hasUserIdentityConflict(user) {
 
 function hasAssignedCanvassers(managerId) {
   return state.users.some((user) => user.role === "Canvasser" && user.managerId === managerId);
+}
+
+function hasAssignedCustomers(userId) {
+  return state.customers.some((customer) => customer.ownerId === userId);
+}
+
+function userDeleteBlocker(user) {
+  if (user.id === currentUserProfile()?.id) return "You cannot delete your own account";
+  if (user.role === "Area Manager" && hasAssignedCanvassers(user.id)) return "Reassign this manager's canvassers before deleting the user";
+  if (user.role === "Canvasser" && hasAssignedCustomers(user.id)) return "Reassign this canvasser's customers before deleting the user";
+  return "";
 }
 
 async function complaintEvidencePayload(form, existing) {

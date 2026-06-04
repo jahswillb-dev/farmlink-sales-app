@@ -66,6 +66,19 @@ function doPost(e) {
       const freshUser = requireUser_(body.token);
       return json_({ ok: true, user: sanitizeUser_(freshUser), savedUser: sanitizeUser_(savedUser), data: loadScoped_(freshUser) });
     }
+    if (body.action === "deleteUser") {
+      if (!isSalesAdmin_(user)) throw new Error("Only Sales Admin can delete users");
+      const lock = LockService.getScriptLock();
+      lock.waitLock(20000);
+      let deletedUser;
+      try {
+        deletedUser = deleteUser_(body.userId, user);
+      } finally {
+        lock.releaseLock();
+      }
+      const freshUser = requireUser_(body.token);
+      return json_({ ok: true, user: sanitizeUser_(freshUser), deletedUserId: deletedUser.id, data: loadScoped_(freshUser) });
+    }
     if (body.action === "saveAll") {
       const lock = LockService.getScriptLock();
       lock.waitLock(20000);
@@ -221,6 +234,26 @@ function saveUser_(data, actor) {
   else users.push(row);
   writeTable_("Users", users);
   return row;
+}
+
+function deleteUser_(userId, actor) {
+  const id = String(userId || "").trim();
+  if (!id) throw new Error("Missing user id");
+  if (id === actor.id) throw new Error("You cannot delete your own account");
+
+  const users = readTable_("Users");
+  const target = users.find((user) => user.id === id);
+  if (!target) throw new Error("User account not found");
+  if (target.role === "Area Manager" && users.some((user) => user.role === "Canvasser" && user.managerId === id)) {
+    throw new Error("Reassign this manager's canvassers before deleting the user");
+  }
+  if (target.role === "Canvasser" && readTable_("Customers").some((customer) => customer.ownerId === id)) {
+    throw new Error("Reassign this canvasser's customers before deleting the user");
+  }
+
+  writeTable_("Users", users.filter((user) => user.id !== id));
+  writeTable_("AuthTokens", readTable_("AuthTokens").filter((token) => token.userId !== id));
+  return target;
 }
 
 function nextUserId_(users) {

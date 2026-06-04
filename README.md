@@ -44,8 +44,10 @@ Only Sales Admin users can open the backend status panel and Users page in the a
 - Sales Admin users can assign `Canvasser`, `Area Manager`, and `Sales Admin` roles.
 - Canvasser accounts must be assigned to an Area Manager.
 - Sales Admin users can activate and deactivate user accounts.
+- Sales Admin users can permanently delete user accounts from the `Users` sheet.
 - New passwords and password resets are sent to Apps Script and stored as SHA-256 hashes in the `Users` sheet.
 - A Sales Admin cannot deactivate or remove Sales Admin access from their own account.
+- A user cannot be deleted while they still own customers or manage assigned canvassers.
 
 ## Delete And Void Rules
 
