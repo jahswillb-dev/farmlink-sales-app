@@ -1814,9 +1814,9 @@ function customerForm(customer) {
       </div>
       <div class="section-title"><h3>Location Tagging</h3></div>
       <div class="form-grid three">
-        ${input("lat", "Latitude", customer.lat)}
-        ${input("lng", "Longitude", customer.lng)}
-        ${input("accuracy", `Location Accuracy (${GPS_MAX_ACCURACY_METERS}m or better)`, customer.accuracy)}
+        ${input("lat", "Latitude", customer.lat, true)}
+        ${input("lng", "Longitude", customer.lng, true)}
+        ${input("accuracy", `Location Accuracy (${GPS_MAX_ACCURACY_METERS}m or better)`, customer.accuracy, true)}
         <div class="full field-row">
           <button class="btn warning" data-action="capture-gps" data-prefix=""><i data-lucide="locate-fixed"></i>Capture GPS Location</button>
           <button class="btn" data-action="capture-gps" data-prefix=""><i data-lucide="map-pin"></i>Retag Location</button>
@@ -1901,7 +1901,7 @@ function openVisitModal(id = "", customerId = "") {
         ${input("date", "Visit Date", visit.date, true, "date")}
         ${input("time", "Visit Time", formatTime(visit.time), true, "time")}
         <div class="field-row full">
-          ${input("gps", "GPS Location at Visit", visit.gps)}
+          ${input("gps", "GPS Location at Visit", visit.gps, true)}
           <button class="btn warning" data-action="capture-gps" data-prefix="visit"><i data-lucide="locate-fixed"></i>GPS</button>
         </div>
         ${selectField("type", "Visit Type", lists.visitTypes, visit.type)}
