@@ -3,6 +3,7 @@ const OFFLINE_STORE_NAME = "app";
 const OFFLINE_STATE_KEY = "state";
 const PENDING_SYNC_KEY = "pendingSync";
 const SESSION_KEY = "farmlink-sales-session";
+const GPS_MAX_ACCURACY_METERS = 400;
 
 const roleProfiles = {
   canvasser: "u1",
@@ -765,6 +766,10 @@ function userIdByName(name) {
   return state.users.find((user) => user.name === name)?.id || "";
 }
 
+function userName(id) {
+  return state.users.find((user) => user.id === id)?.name || "Unassigned";
+}
+
 function customerOwnerId(customer) {
   return customer?.ownerId || userIdByName(customer?.createdBy) || currentUserProfile()?.id || roleProfiles.canvasser;
 }
@@ -870,10 +875,12 @@ function render() {
     followups: renderFollowups,
     sales: renderSales,
     complaints: renderComplaints,
+    users: renderUsers,
     reports: renderReports
   };
+  if (ui.view === "users" && !isSalesAdmin()) ui.view = "dashboard";
   state.currentUser = currentUserName();
-  els.main.innerHTML = `${renderAccessBar()}${views[ui.view]()}`;
+  els.main.innerHTML = `${renderAccessBar()}${(views[ui.view] || renderDashboard)()}`;
   refreshIcons();
   updateSyncButton();
 }
@@ -945,6 +952,9 @@ function syncChrome() {
   document.querySelectorAll("[data-view]").forEach((button) => {
     button.classList.toggle("active", button.dataset.view === ui.view);
   });
+  document.querySelectorAll(".admin-only").forEach((node) => {
+    node.classList.toggle("is-hidden", !isSalesAdmin());
+  });
   document.querySelectorAll("[data-role]").forEach((button) => {
     button.classList.toggle("active", button.dataset.role === ui.role);
   });
@@ -954,6 +964,10 @@ function syncChrome() {
 function handleClick(event) {
   const viewButton = event.target.closest("[data-view]");
   if (viewButton) {
+    if (viewButton.dataset.view === "users" && !isSalesAdmin()) {
+      toast("User administration is for Sales Admin only");
+      return;
+    }
     ui.view = viewButton.dataset.view;
     ui.sidebarOpen = false;
     render();
@@ -1101,6 +1115,18 @@ function runAction(action, data) {
     case "open-complaint":
       openComplaintModal(id, customerId);
       break;
+    case "open-user":
+      openUserModal(id);
+      break;
+    case "new-user":
+      openUserModal();
+      break;
+    case "save-user":
+      saveUserAccount();
+      break;
+    case "toggle-user-status":
+      toggleUserStatus(id);
+      break;
     case "new-complaint":
       openComplaintModal("", customerId);
       break;
@@ -1200,7 +1226,7 @@ function renderDashboard() {
               return `
                 <button class="chart-row table-action wide-row" data-action="open-customer" data-id="${customer.id}">
                   <span class="truncate strong">${customer.farmName}</span>
-                  <span class="chart-track"><span class="chart-fill" style="width:${score}%"></span></span>
+                  <span class="chart-track">${chartFill(score, "attention")}</span>
                   <span class="muted">${score}%</span>
                 </button>
               `;
@@ -1342,6 +1368,33 @@ function renderReports() {
       ${reportPanel("Customer Location Map", `<div class="map-preview">${data.customers.length} tagged customers across ${unique(data.customers.map((c) => c.town)).join(", ")}</div>`)}
       ${reportPanel("Follow-up Monitor", compactFollowupTable(data.followups.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5)))}
     </section>
+  `;
+}
+
+function renderUsers() {
+  if (!isSalesAdmin()) return emptyState("shield-alert", "User administration is for Sales Admin only.");
+  const users = filterByGlobal(state.users, (user) => `${user.name} ${user.email} ${user.username} ${user.role} ${user.territory} ${user.status}`);
+  return `
+    <section class="page-head">
+      <div>
+        <h1>Users & Access</h1>
+        <p>Create accounts, assign roles, connect canvassers to managers, and activate or deactivate access.</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn primary" data-action="new-user"><i data-lucide="user-plus"></i>Add User</button>
+      </div>
+    </section>
+
+    <section class="metric-grid">
+      ${metric("users", state.users.length, "Total Users")}
+      ${metric("user-check", state.users.filter((user) => user.status !== "Inactive").length, "Active")}
+      ${metric("user-x", state.users.filter((user) => user.status === "Inactive").length, "Inactive")}
+      ${metric("map-pinned", canvassers().length, "Canvassers")}
+      ${metric("shield-check", areaManagers().length, "Area Managers")}
+      ${metric("settings", state.users.filter((user) => roleKeyForUser(user.role) === "admin").length, "Sales Admins")}
+    </section>
+
+    <section class="panel">${userTable(users)}</section>
   `;
 }
 
@@ -1513,6 +1566,34 @@ function compactComplaintTable(rows) {
               ${hasEvidence(complaint) ? statusBadge(`${evidenceItemsFromRecord(complaint).length} file${evidenceItemsFromRecord(complaint).length === 1 ? "" : "s"}`, "active") : ""}
               ${statusBadge(complaint.status)}
             </span>
+          </span>
+          <i class="customer-chevron" data-lucide="chevron-right"></i>
+        </button>
+      `).join("")}
+    </div>
+  `;
+}
+
+function userTable(rows) {
+  if (!rows.length) return emptyState("users", "No users match the current filters.");
+  return `
+    <div class="customer-list">
+      ${lineItemHeader(["User / Account", "Role / Region", "Status"])}
+      ${rows.map((user) => `
+        <button type="button" class="customer-row" data-action="open-user" data-id="${user.id}" aria-label="Open user ${escapeAttr(user.name)}">
+          <span class="customer-main">
+            <span class="customer-title">
+              <strong class="truncate">${user.name}</strong>
+              ${statusBadge(user.role)}
+            </span>
+            <span class="customer-subline truncate">${user.username || "No username"} - ${user.email || "No email"}</span>
+          </span>
+          <span class="customer-meta">
+            <span class="truncate"><i data-lucide="map-pin"></i>${user.territory || "No region"}${user.managerId ? ` - Manager: ${userName(user.managerId)}` : ""}</span>
+          </span>
+          <span class="customer-side">
+            <small>${user.id === currentUserProfile()?.id ? "Current account" : "Account"}</small>
+            <span class="customer-badges">${statusBadge(user.status || "Active")}</span>
           </span>
           <i class="customer-chevron" data-lucide="chevron-right"></i>
         </button>
@@ -1731,7 +1812,7 @@ function customerForm(customer) {
       <div class="form-grid three">
         ${input("lat", "Latitude", customer.lat)}
         ${input("lng", "Longitude", customer.lng)}
-        ${input("accuracy", "Location Accuracy", customer.accuracy)}
+        ${input("accuracy", `Location Accuracy (${GPS_MAX_ACCURACY_METERS}m or better)`, customer.accuracy)}
         <div class="full field-row">
           <button class="btn warning" data-action="capture-gps" data-prefix=""><i data-lucide="locate-fixed"></i>Capture GPS Location</button>
           <button class="btn" data-action="capture-gps" data-prefix=""><i data-lucide="map-pin"></i>Retag Location</button>
@@ -1957,6 +2038,42 @@ function openComplaintModal(id = "", customerId = "") {
   });
 }
 
+function openUserModal(id = "") {
+  if (!isSalesAdmin()) {
+    toast("User administration is for Sales Admin only");
+    return;
+  }
+  const isNew = !id;
+  const user = isNew ? blankUser() : state.users.find((item) => item.id === id);
+  if (!user) {
+    toast("User account not found");
+    return;
+  }
+  const isCurrentUser = user.id && user.id === currentUserProfile()?.id;
+  openModal(isNew ? "Add User" : `${user.name} - Access`, `
+    <form id="userForm" data-id="${user.id || ""}">
+      <div class="form-grid">
+        ${input("name", "Full Name", user.name, true)}
+        ${input("username", "Username", user.username, true)}
+        ${input("email", "Email Address", user.email, true, "email")}
+        ${selectField("role", "Role", ["Canvasser", "Area Manager", "Sales Admin"], user.role)}
+        ${input("territory", "Region / Territory", user.territory)}
+        ${managerSelectField("managerId", "Assigned Area Manager", user.managerId)}
+        ${selectField("status", "Account Status", ["Active", "Inactive"], user.status || "Active")}
+        ${input("password", isNew ? "Temporary Password" : "New Password (Optional)", "", isNew, "password", "autocomplete=\"new-password\"")}
+        <p class="form-note full">${isNew ? "The new user can sign in with the username or email after the account is saved." : "Leave password empty to keep the current password."}</p>
+      </div>
+    </form>
+  `, {
+    size: "wide",
+    footer: `
+      ${!isNew && !isCurrentUser ? `<button class="btn ${user.status === "Inactive" ? "warning" : "danger"}" data-action="toggle-user-status" data-id="${user.id}"><i data-lucide="${user.status === "Inactive" ? "user-check" : "user-x"}"></i>${user.status === "Inactive" ? "Activate" : "Deactivate"}</button>` : ""}
+      <button class="btn" data-action="close-modal">Close</button>
+      <button class="btn primary" data-action="save-user"><i data-lucide="save"></i>Save User</button>
+    `
+  });
+}
+
 function complaintEvidenceField(complaint) {
   const items = evidenceItemsFromRecord(complaint);
   return `
@@ -2150,6 +2267,134 @@ async function saveComplaint() {
   closeModal();
   toast("Complaint saved");
   render();
+}
+
+async function saveUserAccount() {
+  if (!isSalesAdmin()) {
+    toast("Only Sales Admin can manage users");
+    return;
+  }
+  const form = document.getElementById("userForm");
+  if (!form.reportValidity()) return;
+
+  const values = serializeForm(form);
+  const id = form.dataset.id || makeId("u", state.users);
+  const user = {
+    id,
+    name: values.name.trim(),
+    username: values.username.trim().toLowerCase(),
+    email: values.email.trim().toLowerCase(),
+    role: values.role,
+    territory: values.territory.trim(),
+    managerId: values.role === "Canvasser" ? values.managerId : "",
+    status: values.status || "Active"
+  };
+
+  if (user.id === currentUserProfile()?.id && (user.status !== "Active" || roleKeyForUser(user.role) !== "admin")) {
+    toast("You cannot deactivate or remove Sales Admin access from your own account");
+    return;
+  }
+  if (user.role === "Canvasser" && !user.managerId) {
+    toast("Assign the canvasser to an area manager");
+    return;
+  }
+  if (user.role === "Canvasser" && user.managerId === user.id) {
+    toast("A canvasser cannot manage their own account");
+    return;
+  }
+  if (user.role !== "Area Manager" && hasAssignedCanvassers(user.id)) {
+    toast("Reassign this manager's canvassers before changing the role");
+    return;
+  }
+  if (hasUserIdentityConflict(user)) {
+    toast("Another user already has that username or email");
+    return;
+  }
+
+  await persistUserAccount(user, values.password || "");
+}
+
+async function toggleUserStatus(id) {
+  if (!isSalesAdmin()) {
+    toast("Only Sales Admin can manage users");
+    return;
+  }
+  const user = state.users.find((item) => item.id === id);
+  if (!user) {
+    toast("User account not found");
+    return;
+  }
+  if (user.id === currentUserProfile()?.id) {
+    toast("You cannot deactivate your own account");
+    return;
+  }
+  await persistUserAccount({
+    ...user,
+    status: user.status === "Inactive" ? "Active" : "Inactive"
+  }, "");
+}
+
+async function persistUserAccount(user, password) {
+  if (!backendIsConfigured() || !authSession?.token) {
+    toast("Login to the live backend before managing users");
+    return false;
+  }
+  if (navigator.onLine === false) {
+    toast("User account changes require an internet connection");
+    return false;
+  }
+  if (hasPendingSync()) {
+    const synced = await pushBackendState({ silent: true });
+    if (!synced) {
+      toast("Sync pending records before managing users");
+      return false;
+    }
+  }
+
+  backendSync.saving = true;
+  backendSync.lastError = "";
+  updateSyncButton();
+  try {
+    const token = authSession.token;
+    const payload = await postBackend("saveUser", { token, user: { ...user, password } });
+    if (!payload.ok) throw new Error(payload.error || "User save failed");
+    if (payload.user) {
+      saveSession({ token, user: payload.user });
+      ui.role = roleKeyForUser(payload.user.role);
+    }
+    if (payload.data) {
+      backendSync.suppressSave = true;
+      state = normalizeBackendState(payload.data);
+      state.currentUser = payload.user?.name || authSession.user?.name || state.currentUser;
+      saveOfflineCache();
+      backendSync.suppressSave = false;
+    }
+    backendSync.lastSavedAt = formatTime(new Date());
+    closeModal();
+    toast("User account saved");
+    render();
+    return true;
+  } catch (error) {
+    backendSync.lastError = error.message || "User save failed";
+    toast(error.message || "Could not save user account");
+    return false;
+  } finally {
+    backendSync.saving = false;
+    updateSyncButton();
+  }
+}
+
+function hasUserIdentityConflict(user) {
+  const email = user.email.trim().toLowerCase();
+  const username = user.username.trim().toLowerCase();
+  return state.users.some((item) => item.id !== user.id && (
+    String(item.email || "").trim().toLowerCase() === email
+    || String(item.username || "").trim().toLowerCase() === username
+  ));
+}
+
+function hasAssignedCanvassers(managerId) {
+  return state.users.some((user) => user.role === "Canvasser" && user.managerId === managerId);
 }
 
 async function complaintEvidencePayload(form, existing) {
@@ -2374,9 +2619,9 @@ async function captureGps(prefix) {
     return;
   }
 
-  toast("Calibrating GPS. Stay still in an open area.");
+  toast(`Calibrating GPS. Stay still until accuracy reaches ${GPS_MAX_ACCURACY_METERS}m or better.`);
   try {
-    const position = await getAccuratePosition(15, 25000);
+    const position = await getAccuratePosition(GPS_MAX_ACCURACY_METERS, 25000);
     const { latitude, longitude, accuracy } = position.coords;
     const lat = latitude.toFixed(6);
     const lng = longitude.toFixed(6);
@@ -2422,7 +2667,7 @@ function getAccuratePosition(maxAccuracyMeters, timeoutMs) {
     timer = setTimeout(() => {
       const best = bestPosition?.coords?.accuracy ? Math.round(bestPosition.coords.accuracy) : null;
       const message = best
-        ? `Best GPS accuracy was ${best}m. Move to an open area and retry.`
+        ? `Best GPS accuracy was ${best}m. The required accuracy is ${maxAccuracyMeters}m or better. Move to an open area and retry.`
         : "GPS could not get a live fix. Move to an open area and retry.";
       finish(reject, new Error(message));
     }, timeoutMs);
@@ -2589,6 +2834,19 @@ function canvasserSelectField(name, labelText, value = "") {
       ${labelText}
       <select name="${name}">
         ${users.map((user) => `<option value="${user.id}" ${user.id === value ? "selected" : ""}>${user.name} - ${user.territory}</option>`).join("")}
+      </select>
+    </label>
+  `;
+}
+
+function managerSelectField(name, labelText, value = "") {
+  const managers = areaManagers();
+  return `
+    <label>
+      ${labelText}
+      <select name="${name}">
+        <option value="">No manager</option>
+        ${managers.map((user) => `<option value="${user.id}" ${user.id === value ? "selected" : ""}>${user.name} - ${user.territory}</option>`).join("")}
       </select>
     </label>
   `;
@@ -2781,10 +3039,41 @@ function chartRow(label, value, percent) {
   return `
     <div class="chart-row">
       <span class="truncate strong">${label}</span>
-      <span class="chart-track"><span class="chart-fill" style="width:${percent}%"></span></span>
+      <span class="chart-track">${chartFill(percent)}</span>
       <span class="muted">${value}</span>
     </div>
   `;
+}
+
+function chartFill(percent, mode = "progress") {
+  const value = Math.max(0, Math.min(100, Number(percent) || 0));
+  const tone = mode === "attention" ? attentionBarTone(value) : progressBarTone(value);
+  return `<span class="chart-fill ${tone}" style="width:${value}%"></span>`;
+}
+
+function progressBarTone(percent) {
+  if (percent >= 70) return "high-progress";
+  if (percent >= 40) return "medium-progress";
+  return "low-progress";
+}
+
+function attentionBarTone(percent) {
+  if (percent >= 70) return "high-attention";
+  if (percent >= 45) return "medium-attention";
+  return "low-attention";
+}
+
+function blankUser() {
+  return {
+    id: "",
+    name: "",
+    email: "",
+    username: "",
+    role: "Canvasser",
+    territory: "",
+    managerId: areaManagers()[0]?.id || "",
+    status: "Active"
+  };
 }
 
 function blankCustomer() {

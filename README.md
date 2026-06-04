@@ -36,7 +36,16 @@ window.FARMLINK_BACKEND_URL = "https://script.google.com/macros/s/YOUR_DEPLOYMEN
 
 After connecting the backend URL, users log in with their own username or email and password. The app receives their role from the `Users` sheet and hides records outside their scope.
 
-Only Sales Admin users can open the backend status panel in the app. Regular canvassers and area managers do not configure anything in their browsers.
+Only Sales Admin users can open the backend status panel and Users page in the app. Regular canvassers and area managers do not configure anything in their browsers.
+
+## User Administration
+
+- Sales Admin users can create and edit users from the in-app `Users` page.
+- Sales Admin users can assign `Canvasser`, `Area Manager`, and `Sales Admin` roles.
+- Canvasser accounts must be assigned to an Area Manager.
+- Sales Admin users can activate and deactivate user accounts.
+- New passwords and password resets are sent to Apps Script and stored as SHA-256 hashes in the `Users` sheet.
+- A Sales Admin cannot deactivate or remove Sales Admin access from their own account.
 
 ## Delete And Void Rules
 
@@ -55,8 +64,8 @@ Only Sales Admin users can open the backend status panel in the app. Regular can
 ## GPS Accuracy
 
 - GPS capture uses high-accuracy browser location with live calibration.
-- The app only accepts readings with reported accuracy of 15 meters or better.
-- If the device cannot reach 15m accuracy, move to an open area and retry.
+- The app only accepts readings with reported accuracy of 400 meters or better.
+- If the device cannot reach 400m accuracy, move to an open area and retry.
 
 ## Offline Sync
 

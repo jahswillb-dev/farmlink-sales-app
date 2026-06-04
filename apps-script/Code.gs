@@ -53,6 +53,19 @@ function doPost(e) {
     if (body.action === "load") {
       return json_({ ok: true, user: sanitizeUser_(user), data: loadScoped_(user) });
     }
+    if (body.action === "saveUser") {
+      if (!isSalesAdmin_(user)) throw new Error("Only Sales Admin can manage users");
+      const lock = LockService.getScriptLock();
+      lock.waitLock(20000);
+      let savedUser;
+      try {
+        savedUser = saveUser_(body.user || {}, user);
+      } finally {
+        lock.releaseLock();
+      }
+      const freshUser = requireUser_(body.token);
+      return json_({ ok: true, user: sanitizeUser_(freshUser), savedUser: sanitizeUser_(savedUser), data: loadScoped_(freshUser) });
+    }
     if (body.action === "saveAll") {
       const lock = LockService.getScriptLock();
       lock.waitLock(20000);
@@ -158,6 +171,64 @@ function saveScoped_(data, user) {
   writeTable_("SaleItems", saleItems);
   writeTable_("Complaints", complaints);
   writeTable_("AuditLogs", auditLogs);
+}
+
+function saveUser_(data, actor) {
+  const users = readTable_("Users");
+  const id = String(data.id || "").trim() || nextUserId_(users);
+  const existingIndex = users.findIndex((user) => user.id === id);
+  const existing = existingIndex >= 0 ? users[existingIndex] : null;
+  const name = String(data.name || "").trim();
+  const cleanEmail = String(data.email || "").trim().toLowerCase();
+  const cleanUsername = String(data.username || usernameFromEmail_(cleanEmail)).trim().toLowerCase();
+  const role = String(data.role || "").trim();
+  const status = String(data.status || "Active").trim() === "Inactive" ? "Inactive" : "Active";
+  const territory = String(data.territory || "").trim();
+  const managerId = role === "Canvasser" ? String(data.managerId || "").trim() : "";
+  const password = String(data.password || "");
+
+  if (!name) throw new Error("User name is required");
+  if (!cleanEmail) throw new Error("User email is required");
+  if (!cleanUsername) throw new Error("Username is required");
+  if (["Canvasser", "Area Manager", "Sales Admin"].indexOf(role) < 0) throw new Error("Invalid user role");
+  if (role === "Canvasser" && !managerId) throw new Error("Assign the canvasser to an area manager");
+  if (role === "Canvasser" && managerId === id) throw new Error("A canvasser cannot manage their own account");
+  if (role !== "Area Manager" && users.some((user) => user.role === "Canvasser" && user.managerId === id)) {
+    throw new Error("Reassign this manager's canvassers before changing the role");
+  }
+  if (managerId && !users.some((user) => user.id === managerId && user.role === "Area Manager")) throw new Error("Selected area manager was not found");
+  if (id === actor.id && (status !== "Active" || role !== "Sales Admin")) throw new Error("You cannot deactivate or remove Sales Admin access from your own account");
+
+  const duplicate = users.find((user) => user.id !== id && (
+    String(user.email || "").trim().toLowerCase() === cleanEmail
+    || String(user.username || "").trim().toLowerCase() === cleanUsername
+  ));
+  if (duplicate) throw new Error("Another user already has that username or email");
+  if (!password && !existing) throw new Error("Temporary password is required for new users");
+
+  const row = {
+    id,
+    name,
+    email: cleanEmail,
+    passwordHash: password ? hashPassword_(password) : existing.passwordHash,
+    role,
+    territory,
+    managerId,
+    status,
+    username: cleanUsername
+  };
+  if (existingIndex >= 0) users[existingIndex] = row;
+  else users.push(row);
+  writeTable_("Users", users);
+  return row;
+}
+
+function nextUserId_(users) {
+  const max = users.reduce((value, user) => {
+    const match = String(user.id || "").match(/^u(\d+)$/i);
+    return match ? Math.max(value, Number(match[1])) : value;
+  }, 0);
+  return "u" + (max + 1);
 }
 
 function loadAllRaw_() {

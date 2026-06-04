@@ -1140,9 +1140,37 @@ textarea:focus {
 }
 
 .chart-fill {
+  display: block;
+  width: 0;
   height: 100%;
   border-radius: inherit;
   background: linear-gradient(90deg, var(--green), var(--teal));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.16);
+  transition: width 180ms ease;
+}
+
+.chart-fill.low-progress {
+  background: linear-gradient(90deg, #2d7ff0, #0f8f83);
+}
+
+.chart-fill.medium-progress {
+  background: linear-gradient(90deg, #f0a32f, #e78a16);
+}
+
+.chart-fill.high-progress {
+  background: linear-gradient(90deg, #12a357, #006f32);
+}
+
+.chart-fill.low-attention {
+  background: linear-gradient(90deg, #2d7ff0, #075fbd);
+}
+
+.chart-fill.medium-attention {
+  background: linear-gradient(90deg, #f0a32f, #e78a16);
+}
+
+.chart-fill.high-attention {
+  background: linear-gradient(90deg, #ef5757, #dc3030);
 }
 
 .report-grid {
@@ -1642,7 +1670,8 @@ textarea:focus {
 .badge.prospect,
 .badge.planned,
 .badge.pending,
-.badge.scheduled {
+.badge.scheduled,
+.badge.canvasser {
   border-color: #bdd8f7;
   background: #eaf4ff;
   color: var(--blue);
@@ -1650,7 +1679,8 @@ textarea:focus {
 
 .badge.follow-up,
 .badge.follow-up-visit,
-.badge.partial {
+.badge.partial,
+.badge.area-manager {
   border-color: #f3d2a0;
   background: #fff3df;
   color: #9a5606;
@@ -1673,8 +1703,15 @@ textarea:focus {
   color: #6d3fa0;
 }
 
+.badge.sales-admin {
+  border-color: #b7dfc8;
+  background: #e9f7ef;
+  color: var(--green-dark);
+}
+
 .badge.voided,
-.badge.none {
+.badge.none,
+.badge.inactive {
   border-color: #d8dde5;
   background: #f2f4f7;
   color: #4c5968;
@@ -1721,6 +1758,7 @@ textarea:focus {
 }
 
 .chart-fill {
+  display: block;
   background: linear-gradient(90deg, var(--blue), var(--green));
 }
 
