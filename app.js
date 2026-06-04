@@ -282,6 +282,7 @@ let offlineCache = {
   pending: false
 };
 let offlineDbPromise = null;
+let loadingDepth = 0;
 
 let ui = {
   signedIn: false,
@@ -302,6 +303,9 @@ document.addEventListener("DOMContentLoaded", () => {
   els.appShell = document.getElementById("appShell");
   els.main = document.getElementById("mainContent");
   els.modalRoot = document.getElementById("modalRoot");
+  els.loadingOverlay = document.getElementById("loadingOverlay");
+  els.loadingTitle = document.getElementById("loadingTitle");
+  els.loadingMessage = document.getElementById("loadingMessage");
   els.toastRoot = document.getElementById("toastRoot");
   els.globalSearch = document.getElementById("globalSearch");
 
@@ -371,6 +375,7 @@ async function handleLogin(formData) {
   }
 
   backendSync.loading = true;
+  showLoading("Signing in", "Loading your workspace and latest Google Sheets records.");
   updateSyncButton();
   try {
     const payload = await postBackend("login", { email, password });
@@ -395,6 +400,7 @@ async function handleLogin(formData) {
     toast("Login failed. Check the account details.");
   } finally {
     backendSync.loading = false;
+    hideLoading();
     updateSyncButton();
   }
 }
@@ -545,6 +551,7 @@ async function pullBackendState(options = {}) {
 
   backendSync.loading = true;
   backendSync.lastError = "";
+  if (!options.silent || options.loadingMessage) showLoading("Loading records", options.loadingMessage || "Pulling the latest Google Sheets data.");
   updateSyncButton();
   try {
     const payload = await postBackend("load", { token: authSession.token });
@@ -569,6 +576,7 @@ async function pullBackendState(options = {}) {
     return false;
   } finally {
     backendSync.loading = false;
+    if (!options.silent || options.loadingMessage) hideLoading();
     updateSyncButton();
   }
 }
@@ -628,7 +636,7 @@ function queueBackendSave() {
   }
   clearTimeout(backendSync.saveTimer);
   backendSync.saveTimer = setTimeout(() => {
-    pushBackendState({ silent: true });
+    pushBackendState({ silent: true, loadingMessage: "Saving record to Google Sheets." });
   }, 650);
   updateSyncButton();
 }
@@ -653,6 +661,7 @@ async function pushBackendState(options = {}) {
 
   backendSync.saving = true;
   backendSync.lastError = "";
+  if (!options.silent || options.loadingMessage) showLoading("Saving", options.loadingMessage || "Saving changes to Google Sheets.");
   updateSyncButton();
   try {
     const payload = await postBackend("saveAll", { token: authSession.token, data: stateForBackend() });
@@ -675,6 +684,7 @@ async function pushBackendState(options = {}) {
     return false;
   } finally {
     backendSync.saving = false;
+    if (!options.silent || options.loadingMessage) hideLoading();
     updateSyncButton();
   }
 }
@@ -2262,7 +2272,13 @@ async function saveComplaint() {
   const values = serializeForm(form);
   const id = form.dataset.id || makeId("cp", state.complaints);
   const existing = state.complaints.find((item) => item.id === id);
-  const evidence = await complaintEvidencePayload(form, existing);
+  showLoading("Preparing complaint", "Processing photo and video evidence.");
+  let evidence;
+  try {
+    evidence = await complaintEvidencePayload(form, existing);
+  } finally {
+    hideLoading();
+  }
   if (!evidence) return;
   delete values.evidenceFiles;
   delete values.evidenceRemoved;
@@ -2377,6 +2393,7 @@ async function persistUserAccount(user, password) {
 
   backendSync.saving = true;
   backendSync.lastError = "";
+  showLoading("Saving user", "Updating the Users sheet and account permissions.");
   updateSyncButton();
   try {
     const token = authSession.token;
@@ -2404,6 +2421,7 @@ async function persistUserAccount(user, password) {
     return false;
   } finally {
     backendSync.saving = false;
+    hideLoading();
     updateSyncButton();
   }
 }
@@ -2427,6 +2445,7 @@ async function persistUserDeletion(id) {
 
   backendSync.saving = true;
   backendSync.lastError = "";
+  showLoading("Deleting user", "Removing the account from the Users sheet.");
   updateSyncButton();
   try {
     const token = authSession.token;
@@ -2454,6 +2473,7 @@ async function persistUserDeletion(id) {
     return false;
   } finally {
     backendSync.saving = false;
+    hideLoading();
     updateSyncButton();
   }
 }
@@ -3288,6 +3308,18 @@ function escapeAttr(value) {
 
 function refreshIcons() {
   if (window.lucide) window.lucide.createIcons();
+}
+
+function showLoading(title = "Working...", message = "Please wait while FarmLink completes this action.") {
+  loadingDepth += 1;
+  if (els.loadingTitle) els.loadingTitle.textContent = title;
+  if (els.loadingMessage) els.loadingMessage.textContent = message;
+  if (els.loadingOverlay) els.loadingOverlay.classList.remove("is-hidden");
+}
+
+function hideLoading() {
+  loadingDepth = Math.max(0, loadingDepth - 1);
+  if (loadingDepth === 0 && els.loadingOverlay) els.loadingOverlay.classList.add("is-hidden");
 }
 
 function toast(message) {

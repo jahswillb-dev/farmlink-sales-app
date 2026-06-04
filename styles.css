@@ -1298,6 +1298,47 @@ textarea:focus {
   font-weight: 800;
 }
 
+.loading-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 90;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: rgba(255, 255, 255, 0.86);
+  backdrop-filter: blur(8px);
+}
+
+.loading-card {
+  width: min(340px, 92vw);
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  border: 1px solid #d9e4ee;
+  border-radius: 8px;
+  background: #fff;
+  padding: 18px 18px 22px;
+  box-shadow: 0 22px 58px rgba(22, 32, 51, 0.18);
+  text-align: center;
+}
+
+.loading-card img {
+  width: min(240px, 70vw);
+  aspect-ratio: 1;
+  object-fit: contain;
+}
+
+.loading-card strong {
+  color: var(--blue);
+  font-size: 20px;
+}
+
+.loading-card span {
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
 .bottom-nav {
   display: none;
 }
