@@ -1,4 +1,4 @@
-# FarmLink Sales Web App
+# FarmLink Canvasser Console
 
 Static frontend for GitHub Pages with a Google Sheets / Apps Script backend.
 
@@ -47,11 +47,11 @@ Only Sales Admin users can open the backend status panel and Users page in the a
 - Sales Admin users can permanently delete user accounts from the `Users` sheet.
 - New passwords and password resets are sent to Apps Script and stored as SHA-256 hashes in the `Users` sheet.
 - A Sales Admin cannot deactivate or remove Sales Admin access from their own account.
-- A user cannot be deleted while they still own customers or manage assigned canvassers.
+- A user cannot be deleted while they still own customers/distributors or manage assigned canvassers.
 
 ## Delete And Void Rules
 
-- Sales Admin users can permanently delete customers, visits, follow-ups, sales, and complaints.
+- Sales Admin users can permanently delete customers, distributors, visits, follow-ups, sales, and complaints.
 - Canvassers and Area Managers can only void those records.
 - Voided records remain in Google Sheets with `voided`, `voidedBy`, and `voidedAt` metadata.
 - After updating Apps Script, open the `/exec?action=setup` URL once so the new void columns are added to existing sheets.
@@ -121,6 +121,7 @@ The Apps Script backend creates these tabs:
 - `Users`
 - `AuthTokens`
 - `Customers`
+- `Distributors`
 - `BirdDetails`
 - `Visits`
 - `Followups`
@@ -128,6 +129,8 @@ The Apps Script backend creates these tabs:
 - `SaleItems`
 - `Complaints`
 - `AuditLogs`
+
+Customers and distributors are stored in separate master tabs. Shared activity tabs still use the `customerId` column as the linked account id, so a visit, follow-up, sale, complaint, or audit row can point to either a customer id (`c...`) or distributor id (`d...`).
 
 Sales are split into `Sales` and `SaleItems` so multiple product line items can be stored cleanly.
 

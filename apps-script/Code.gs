@@ -7,6 +7,7 @@ const TABLES = {
   Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status", "username"],
   AuthTokens: ["token", "userId", "createdAt", "expiresAt"],
   Customers: ["id", "farmName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "farmType", "birdType", "capacity", "stock", "pens", "stage", "feedConsumption", "feedBrand", "frequency", "supplier", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
+  Distributors: ["id", "businessName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "distributorType", "coverageArea", "monthlyVolume", "brandsCarried", "warehouseCapacity", "deliveryFleet", "paymentTerms", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
   BirdDetails: ["id", "customerId", "birdType", "breed", "stage", "quantity", "pen", "age", "mortality", "feed", "notes"],
   Visits: ["id", "customerId", "date", "time", "gps", "type", "personMet", "purpose", "summary", "observation", "currentFeed", "competitor", "interest", "nextStep", "followupDate", "notes", "createdBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
   Followups: ["id", "customerId", "visitId", "action", "responsible", "priority", "dueDate", "status", "completionNotes", "dateCompleted", "voided", "voidedBy", "voidedAt"],
@@ -133,20 +134,22 @@ function loadScoped_(user) {
   const users = all.users;
   const allowedCanvasserIds = allowedCanvasserIds_(user, users);
   const allowedCustomerIds = new Set(all.customers.filter((customer) => allowedCanvasserIds.includes(customer.ownerId)).map((customer) => customer.id));
-  const allowedSaleIds = new Set(all.sales.filter((sale) => allowedCustomerIds.has(sale.customerId)).map((sale) => sale.id));
+  const allowedDistributorIds = new Set(all.distributors.filter((distributor) => allowedCanvasserIds.includes(distributor.ownerId)).map((distributor) => distributor.id));
+  const allowedAccountIds = new Set([...allowedCustomerIds, ...allowedDistributorIds]);
 
   return {
     currentUser: user.name,
     users: scopedUsers_(user, users).map(sanitizeUser_),
     customers: all.customers.filter((customer) => allowedCustomerIds.has(customer.id)),
+    distributors: all.distributors.filter((distributor) => allowedDistributorIds.has(distributor.id)),
     birdDetails: all.birdDetails.filter((row) => allowedCustomerIds.has(row.customerId)),
-    visits: all.visits.filter((row) => allowedCustomerIds.has(row.customerId)),
-    followups: all.followups.filter((row) => allowedCustomerIds.has(row.customerId)),
+    visits: all.visits.filter((row) => allowedAccountIds.has(row.customerId)),
+    followups: all.followups.filter((row) => allowedAccountIds.has(row.customerId)),
     sales: all.sales
-      .filter((row) => allowedCustomerIds.has(row.customerId))
+      .filter((row) => allowedAccountIds.has(row.customerId))
       .map((sale) => ({ ...sale, items: all.saleItems.filter((item) => item.saleId === sale.id).map(stripSaleId_) })),
-    complaints: all.complaints.filter((row) => allowedCustomerIds.has(row.customerId)),
-    auditLogs: all.auditLogs.filter((row) => allowedCustomerIds.has(row.customerId))
+    complaints: all.complaints.filter((row) => allowedAccountIds.has(row.customerId)),
+    auditLogs: all.auditLogs.filter((row) => allowedAccountIds.has(row.customerId))
   };
 }
 
@@ -156,30 +159,39 @@ function saveScoped_(data, user) {
   const canDeleteRows = isSalesAdmin_(user);
   const allowedCanvasserIds = allowedCanvasserIds_(user, users);
   const canAccessCustomer = (customer) => allowedCanvasserIds.includes(customer.ownerId);
+  const canAccessDistributor = (distributor) => allowedCanvasserIds.includes(distributor.ownerId);
 
   const incomingCustomers = data.customers || [];
   const incomingCustomerIds = new Set(incomingCustomers.filter(canAccessCustomer).map((customer) => customer.id));
   const existingAccessibleCustomerIds = new Set(all.customers.filter(canAccessCustomer).map((customer) => customer.id));
   const allowedCustomerIds = new Set([...incomingCustomerIds, ...existingAccessibleCustomerIds]);
 
+  const incomingDistributors = data.distributors || [];
+  const incomingDistributorIds = new Set(incomingDistributors.filter(canAccessDistributor).map((distributor) => distributor.id));
+  const existingAccessibleDistributorIds = new Set(all.distributors.filter(canAccessDistributor).map((distributor) => distributor.id));
+  const allowedDistributorIds = new Set([...incomingDistributorIds, ...existingAccessibleDistributorIds]);
+  const allowedAccountIds = new Set([...allowedCustomerIds, ...allowedDistributorIds]);
+
   const customers = mergeScopedRows_(all.customers, incomingCustomers, canAccessCustomer, canDeleteRows);
+  const distributors = mergeScopedRows_(all.distributors, incomingDistributors, canAccessDistributor, canDeleteRows);
   const birdDetails = mergeScopedRows_(all.birdDetails, data.birdDetails || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
-  const visits = mergeScopedRows_(all.visits, data.visits || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
-  const followups = mergeScopedRows_(all.followups, data.followups || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
+  const visits = mergeScopedRows_(all.visits, data.visits || [], (row) => allowedAccountIds.has(row.customerId), canDeleteRows);
+  const followups = mergeScopedRows_(all.followups, data.followups || [], (row) => allowedAccountIds.has(row.customerId), canDeleteRows);
   const incomingComplaints = (data.complaints || []).map(processComplaintEvidence_);
-  const complaints = mergeScopedRows_(all.complaints, incomingComplaints, (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
-  const auditLogs = mergeScopedRows_(all.auditLogs, data.auditLogs || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
+  const complaints = mergeScopedRows_(all.complaints, incomingComplaints, (row) => allowedAccountIds.has(row.customerId), canDeleteRows);
+  const auditLogs = mergeScopedRows_(all.auditLogs, data.auditLogs || [], (row) => allowedAccountIds.has(row.customerId), canDeleteRows);
 
   const incomingSales = data.sales || [];
-  const sales = mergeScopedRows_(all.sales, incomingSales.map(stripItems_), (sale) => allowedCustomerIds.has(sale.customerId), canDeleteRows);
+  const sales = mergeScopedRows_(all.sales, incomingSales.map(stripItems_), (sale) => allowedAccountIds.has(sale.customerId), canDeleteRows);
   const writableSaleIds = new Set([
-    ...all.sales.filter((sale) => allowedCustomerIds.has(sale.customerId)).map((sale) => sale.id),
-    ...incomingSales.filter((sale) => allowedCustomerIds.has(sale.customerId)).map((sale) => sale.id)
+    ...all.sales.filter((sale) => allowedAccountIds.has(sale.customerId)).map((sale) => sale.id),
+    ...incomingSales.filter((sale) => allowedAccountIds.has(sale.customerId)).map((sale) => sale.id)
   ]);
   const incomingSaleItems = incomingSales.flatMap((sale) => (sale.items || []).map((item) => ({ ...item, saleId: sale.id })));
   const saleItems = mergeScopedRows_(all.saleItems, incomingSaleItems, (item) => writableSaleIds.has(item.saleId), canDeleteRows);
 
   writeTable_("Customers", customers);
+  writeTable_("Distributors", distributors);
   writeTable_("BirdDetails", birdDetails);
   writeTable_("Visits", visits);
   writeTable_("Followups", followups);
@@ -250,8 +262,11 @@ function deleteUser_(userId, actor) {
   if (target.role === "Area Manager" && users.some((user) => user.role === "Canvasser" && user.managerId === id)) {
     throw new Error("Reassign this manager's canvassers before deleting the user");
   }
-  if (target.role === "Canvasser" && readTable_("Customers").some((customer) => customer.ownerId === id)) {
-    throw new Error("Reassign this canvasser's customers before deleting the user");
+  if (target.role === "Canvasser" && (
+    readTable_("Customers").some((customer) => customer.ownerId === id)
+    || readTable_("Distributors").some((distributor) => distributor.ownerId === id)
+  )) {
+    throw new Error("Reassign this canvasser's customers/distributors before deleting the user");
   }
 
   writeTable_("Users", users.filter((user) => user.id !== id));
@@ -272,6 +287,7 @@ function loadAllRaw_() {
   return {
     users: readTable_("Users"),
     customers: readTable_("Customers"),
+    distributors: readTable_("Distributors"),
     birdDetails: readTable_("BirdDetails"),
     visits: readTable_("Visits"),
     followups: readTable_("Followups"),

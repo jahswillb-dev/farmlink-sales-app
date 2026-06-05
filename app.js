@@ -19,11 +19,14 @@ const lists = {
   priorities: ["Low", "Medium", "High"],
   actionStatus: ["Pending", "In Progress", "Completed", "Cancelled"],
   paymentStatus: ["Paid", "Part Payment", "Credit"],
-  deliveryStatus: ["Delivered", "Pending", "Partially Delivered"],
+  deliveryStatus: ["Delivered", "Pending", "Partially Delivered", "Scheduled"],
   complaintCategories: ["Product Quality", "Delivery Delay", "Wrong Product", "Damaged Bags", "Pricing Issue", "Poor Customer Service", "Short Supply", "Other"],
   complaintStatus: ["Open", "Under Review", "Resolved", "Closed"],
   severity: ["Low", "Medium", "High", "Critical"],
-  products: ["Broiler Starter", "Broiler Grower", "Broiler Finisher", "Layer Mash", "Breeder Mash", "Concentrate", "Turkey Grower"]
+  products: ["Broiler Starter", "Broiler Grower", "Broiler Finisher", "Layer Mash", "Breeder Mash", "Concentrate", "Turkey Grower"],
+  distributorCategories: ["Prospect", "Active", "Dormant", "Suspended"],
+  distributorTypes: ["Retail Distributor", "Wholesale Distributor", "Sub-Dealer", "Key Account", "Aggregator"],
+  paymentTerms: ["Cash", "Transfer", "Part Payment", "Credit", "Consignment"]
 };
 
 const demoData = {
@@ -230,6 +233,95 @@ const demoData = {
       updatedAt: "2026-06-01"
     }
   ],
+  distributors: [
+    {
+      id: "d1",
+      businessName: "Mega Feeds Distributors",
+      contact: "Mr. Sunday Adeola",
+      phone: "0806 444 8899",
+      altPhone: "0817 260 4410",
+      email: "orders@megafeeds.example.com",
+      address: "Warehouse 4, Bodija Market Road",
+      state: "Oyo",
+      lga: "Ibadan North",
+      town: "Bodija",
+      category: "Active",
+      distributorType: "Wholesale Distributor",
+      coverageArea: "Bodija, Sango, Mokola, Moniya",
+      monthlyVolume: "420 bags",
+      brandsCarried: "LayerBest, PrimeGrow, NutriMax",
+      warehouseCapacity: "1,200 bags",
+      deliveryFleet: "2 vans, 1 pickup",
+      paymentTerms: "Credit",
+      notes: "Strong route coverage. Wants distributor margin review before next bulk order.",
+      lat: "7.4318",
+      lng: "3.9142",
+      accuracy: "28m",
+      ownerId: "u1",
+      createdBy: "Ada Okafor",
+      createdAt: "2026-05-12",
+      updatedBy: "Ada Okafor",
+      updatedAt: "2026-06-01"
+    },
+    {
+      id: "d2",
+      businessName: "Akinyele Feed Hub",
+      contact: "Mrs. Yetunde Salami",
+      phone: "0815 742 3005",
+      altPhone: "",
+      email: "",
+      address: "Shop 12, Moniya Feed Line",
+      state: "Oyo",
+      lga: "Akinyele",
+      town: "Moniya",
+      category: "Prospect",
+      distributorType: "Retail Distributor",
+      coverageArea: "Moniya, Ijaye, Akinyele farm clusters",
+      monthlyVolume: "110 bags",
+      brandsCarried: "Open market mixed brands",
+      warehouseCapacity: "250 bags",
+      deliveryFleet: "None",
+      paymentTerms: "Transfer",
+      notes: "Interested in starter packs and retail signage support.",
+      lat: "7.5295",
+      lng: "3.9170",
+      accuracy: "35m",
+      ownerId: "u2",
+      createdBy: "Tunde Balogun",
+      createdAt: "2026-05-25",
+      updatedBy: "Tunde Balogun",
+      updatedAt: "2026-05-31"
+    },
+    {
+      id: "d3",
+      businessName: "Abeokuta Poultry Depot",
+      contact: "Mr. Chuka Ibe",
+      phone: "0901 222 7780",
+      altPhone: "0703 555 7711",
+      email: "depot@example.com",
+      address: "Lafenwa Feed Market",
+      state: "Ogun",
+      lga: "Abeokuta North",
+      town: "Abeokuta",
+      category: "Active",
+      distributorType: "Key Account",
+      coverageArea: "Lafenwa, Obantoko, Abeokuta East",
+      monthlyVolume: "650 bags",
+      brandsCarried: "LayerBest, Breeder Mash",
+      warehouseCapacity: "2,000 bags",
+      deliveryFleet: "3 vans",
+      paymentTerms: "Part Payment",
+      notes: "Outside Oyo Central manager scope; visible to Sales Admin and Ogun manager.",
+      lat: "7.1802",
+      lng: "3.3526",
+      accuracy: "31m",
+      ownerId: "u4",
+      createdBy: "Bola Nwosu",
+      createdAt: "2026-05-20",
+      updatedBy: "Bola Nwosu",
+      updatedAt: "2026-06-01"
+    }
+  ],
   birdDetails: [
     { id: "b1", customerId: "c1", birdType: "Broiler", breed: "Ross 308", stage: "Finisher", quantity: 2700, pen: "Pen 1", age: "6 weeks", mortality: "2.1%", feed: "Broiler Finisher", notes: "Ready for off-take within 10 days." },
     { id: "b2", customerId: "c1", birdType: "Broiler", breed: "Arbor Acres", stage: "Grower", quantity: 2000, pen: "Pen 2", age: "4 weeks", mortality: "1.4%", feed: "Broiler Grower", notes: "Uniform weight gain." },
@@ -242,26 +334,30 @@ const demoData = {
     { id: "v2", customerId: "c2", date: "2026-06-01", time: "14:10", gps: "7.5281, 3.9146", type: "Routine Visit", personMet: "Mrs. Ajayi", purpose: "Layer mash pricing", summary: "Shared current price list and discussed credit policy.", observation: "Feed store clean, egg crate demand high.", currentFeed: "LayerBest", competitor: "Competitor offered discount for 100 bags.", interest: "Medium", nextStep: "Manager to approve introductory discount", followupDate: "2026-06-05", notes: "Price is main blocker.", createdBy: "Tunde Balogun", updatedAt: "2026-06-01" },
     { id: "v3", customerId: "c3", date: "2026-05-30", time: "11:00", gps: "Not tagged", type: "New Prospect", personMet: "Pastor Eze", purpose: "Product introduction", summary: "Introduced starter and grower feed line.", observation: "Pens need better ventilation.", currentFeed: "FarmPlus", competitor: "Open market supply only.", interest: "High", nextStep: "Arrange technical support visit", followupDate: "2026-06-04", notes: "Retag location on next visit.", createdBy: "Ada Okafor", updatedAt: "2026-05-30" },
     { id: "v4", customerId: "c4", date: "2026-05-21", time: "16:35", gps: "7.4040, 3.8292", type: "Complaint Visit", personMet: "Engr. Bello", purpose: "Review damaged bags", summary: "Inspected affected bags and batch label.", observation: "Storage area dry, damage likely from delivery handling.", currentFeed: "NutriMax", competitor: "None discussed.", interest: "Low", nextStep: "Escalate batch photos to QA", followupDate: "2026-06-02", notes: "Customer waiting for replacement decision.", createdBy: "Tunde Balogun", updatedAt: "2026-05-21" },
-    { id: "v5", customerId: "c6", date: "2026-06-02", time: "10:45", gps: "7.1608, 3.3483", type: "Routine Visit", personMet: "Mrs. Umeh", purpose: "Layer mash reorder", summary: "Confirmed stock level and next delivery volume.", observation: "Birds healthy, feed room needs pallet lift.", currentFeed: "LayerBest", competitor: "Dealer offered smaller discount.", interest: "High", nextStep: "Confirm 30-bag order with dispatch", followupDate: "2026-06-04", notes: "Owned by Bola Nwosu outside current area manager scope.", createdBy: "Bola Nwosu", updatedAt: "2026-06-02" }
+    { id: "v5", customerId: "c6", date: "2026-06-02", time: "10:45", gps: "7.1608, 3.3483", type: "Routine Visit", personMet: "Mrs. Umeh", purpose: "Layer mash reorder", summary: "Confirmed stock level and next delivery volume.", observation: "Birds healthy, feed room needs pallet lift.", currentFeed: "LayerBest", competitor: "Dealer offered smaller discount.", interest: "High", nextStep: "Confirm 30-bag order with dispatch", followupDate: "2026-06-04", notes: "Owned by Bola Nwosu outside current area manager scope.", createdBy: "Bola Nwosu", updatedAt: "2026-06-02" },
+    { id: "v6", customerId: "d1", date: "2026-06-03", time: "13:15", gps: "7.4318, 3.9142", type: "Sales Visit", personMet: "Mr. Adeola", purpose: "Distributor reorder plan", summary: "Reviewed warehouse stock, delivery route demand, and June bulk order plan.", observation: "Warehouse dry and well stacked. Layer feed moving fastest.", currentFeed: "LayerBest", competitor: "Competitor is offering free retail banners.", interest: "High", nextStep: "Send distributor price band and delivery calendar", followupDate: "2026-06-06", notes: "Needs management approval for larger credit line.", createdBy: "Ada Okafor", updatedAt: "2026-06-03" }
   ],
   followups: [
     { id: "f1", customerId: "c1", visitId: "v1", action: "Confirm payment and delivery slot", responsible: "Ada Okafor", priority: "High", dueDate: "2026-06-03", status: "Pending", completionNotes: "", dateCompleted: "" },
     { id: "f2", customerId: "c2", visitId: "v2", action: "Request introductory discount approval", responsible: "Miriam Yusuf", priority: "Medium", dueDate: "2026-06-05", status: "In Progress", completionNotes: "", dateCompleted: "" },
     { id: "f3", customerId: "c3", visitId: "v3", action: "Schedule technical support visit", responsible: "Ada Okafor", priority: "High", dueDate: "2026-06-04", status: "Pending", completionNotes: "", dateCompleted: "" },
     { id: "f4", customerId: "c4", visitId: "v4", action: "Send complaint photos to QA", responsible: "Tunde Balogun", priority: "High", dueDate: "2026-06-01", status: "Pending", completionNotes: "", dateCompleted: "" },
-    { id: "f5", customerId: "c6", visitId: "v5", action: "Confirm 30-bag order with dispatch", responsible: "Bola Nwosu", priority: "Medium", dueDate: "2026-06-04", status: "Pending", completionNotes: "", dateCompleted: "" }
+    { id: "f5", customerId: "c6", visitId: "v5", action: "Confirm 30-bag order with dispatch", responsible: "Bola Nwosu", priority: "Medium", dueDate: "2026-06-04", status: "Pending", completionNotes: "", dateCompleted: "" },
+    { id: "f6", customerId: "d1", visitId: "v6", action: "Share distributor price band and June delivery calendar", responsible: "Ada Okafor", priority: "High", dueDate: "2026-06-06", status: "Pending", completionNotes: "", dateCompleted: "" }
   ],
   sales: [
     { id: "s1", customerId: "c1", visitId: "v1", date: "2026-06-02", paymentStatus: "Part Payment", deliveryStatus: "Pending", invoice: "INV-2401", notes: "Deliver tomorrow morning.", createdBy: "Ada Okafor", items: [{ id: "si1", product: "Broiler Finisher", category: "Feed", feedType: "Finisher", quantity: 35, unit: "Bags", unitPrice: 18500 }] },
     { id: "s2", customerId: "c2", visitId: "v2", date: "2026-05-29", paymentStatus: "Paid", deliveryStatus: "Delivered", invoice: "INV-2385", notes: "Repeat order likely next week.", createdBy: "Tunde Balogun", items: [{ id: "si2", product: "Layer Mash", category: "Feed", feedType: "Layer Mash", quantity: 22, unit: "Bags", unitPrice: 17600 }] },
     { id: "s3", customerId: "c5", visitId: "", date: "2026-06-01", paymentStatus: "Credit", deliveryStatus: "Delivered", invoice: "INV-2400", notes: "First purchase after onboarding.", createdBy: "Ada Okafor", items: [{ id: "si3", product: "Breeder Mash", category: "Feed", feedType: "Breeder", quantity: 18, unit: "Bags", unitPrice: 19800 }] },
-    { id: "s4", customerId: "c6", visitId: "v5", date: "2026-06-02", paymentStatus: "Paid", deliveryStatus: "Pending", invoice: "INV-2402", notes: "Outside current area manager scope.", createdBy: "Bola Nwosu", items: [{ id: "si4", product: "Layer Mash", category: "Feed", feedType: "Layer Mash", quantity: 30, unit: "Bags", unitPrice: 17700 }] }
+    { id: "s4", customerId: "c6", visitId: "v5", date: "2026-06-02", paymentStatus: "Paid", deliveryStatus: "Pending", invoice: "INV-2402", notes: "Outside current area manager scope.", createdBy: "Bola Nwosu", items: [{ id: "si4", product: "Layer Mash", category: "Feed", feedType: "Layer Mash", quantity: 30, unit: "Bags", unitPrice: 17700 }] },
+    { id: "s5", customerId: "d1", visitId: "v6", date: "2026-06-03", paymentStatus: "Credit", deliveryStatus: "Scheduled", invoice: "INV-2403", notes: "Bulk distributor reorder for retail route supply.", createdBy: "Ada Okafor", items: [{ id: "si5", product: "Layer Mash", category: "Feed", feedType: "Layer Mash", quantity: 120, unit: "Bags", unitPrice: 17400 }] }
   ],
   complaints: [
     { id: "cp1", customerId: "c4", date: "2026-05-21", category: "Damaged Bags", product: "Turkey Grower", batch: "TG-0526-04", quantity: "7 bags", description: "Outer bags torn during delivery.", severity: "High", actionTaken: "Photos taken and batch noted.", assignedTo: "QA Desk", status: "Under Review", resolutionNotes: "", dateResolved: "" },
     { id: "cp2", customerId: "c2", date: "2026-05-28", category: "Pricing Issue", product: "Layer Mash", batch: "", quantity: "", description: "Customer says competitor price is lower.", severity: "Medium", actionTaken: "Escalated to manager for discount review.", assignedTo: "Miriam Yusuf", status: "Open", resolutionNotes: "", dateResolved: "" },
     { id: "cp3", customerId: "c1", date: "2026-05-18", category: "Delivery Delay", product: "Broiler Grower", batch: "", quantity: "20 bags", description: "Truck arrived five hours late.", severity: "Low", actionTaken: "Apology issued and logistics informed.", assignedTo: "Dispatch Lead", status: "Resolved", resolutionNotes: "Dispatch window adjusted for next order.", dateResolved: "2026-05-19" },
-    { id: "cp4", customerId: "c6", date: "2026-05-31", category: "Short Supply", product: "Layer Mash", batch: "LM-0526-11", quantity: "2 bags", description: "Customer reported two bags short on delivery note.", severity: "Medium", actionTaken: "Dispatch asked to reconcile trip sheet.", assignedTo: "Sales Admin", status: "Open", resolutionNotes: "", dateResolved: "" }
+    { id: "cp4", customerId: "c6", date: "2026-05-31", category: "Short Supply", product: "Layer Mash", batch: "LM-0526-11", quantity: "2 bags", description: "Customer reported two bags short on delivery note.", severity: "Medium", actionTaken: "Dispatch asked to reconcile trip sheet.", assignedTo: "Sales Admin", status: "Open", resolutionNotes: "", dateResolved: "" },
+    { id: "cp5", customerId: "d1", date: "2026-06-01", category: "Delivery Delay", product: "Layer Mash", batch: "LM-0601-02", quantity: "80 bags", description: "Distributor reported late arrival that affected retail resupply.", severity: "Medium", actionTaken: "Logged route delay and notified logistics.", assignedTo: "Dispatch Lead", status: "Open", resolutionNotes: "", dateResolved: "" }
   ],
   auditLogs: []
 };
@@ -291,6 +387,7 @@ let ui = {
   regionFilter: "all",
   canvasserFilter: "all",
   customerFilter: "",
+  distributorFilter: "",
   globalSearch: "",
   sidebarOpen: false
 };
@@ -599,7 +696,7 @@ async function pullBackendState(options = {}) {
 }
 
 function hasBackendRows(data) {
-  return ["users", "customers", "visits", "followups", "sales", "complaints"].some((key) => Array.isArray(data[key]) && data[key].length);
+  return ["users", "customers", "distributors", "visits", "followups", "sales", "complaints"].some((key) => Array.isArray(data[key]) && data[key].length);
 }
 
 function normalizeBackendState(data) {
@@ -608,6 +705,7 @@ function normalizeBackendState(data) {
     ...data,
     users: data.users || [],
     customers: data.customers || [],
+    distributors: data.distributors || [],
     birdDetails: data.birdDetails || [],
     visits: (data.visits || []).map((visit) => ({ ...visit, time: formatTime(visit.time) })),
     followups: data.followups || [],
@@ -797,8 +895,16 @@ function userName(id) {
   return state.users.find((user) => user.id === id)?.name || "Unassigned";
 }
 
+function accountOwnerId(account) {
+  return account?.ownerId || userIdByName(account?.createdBy) || currentUserProfile()?.id || roleProfiles.canvasser;
+}
+
 function customerOwnerId(customer) {
-  return customer?.ownerId || userIdByName(customer?.createdBy) || currentUserProfile()?.id || roleProfiles.canvasser;
+  return accountOwnerId(customer);
+}
+
+function distributorOwnerId(distributor) {
+  return accountOwnerId(distributor);
 }
 
 function managerForCanvasser(canvasserId) {
@@ -845,39 +951,61 @@ function canAccessCustomer(customer) {
   return visibleCanvasserIds().includes(customerOwnerId(customer));
 }
 
+function canAccessDistributor(distributor) {
+  if (!distributor) return false;
+  return visibleCanvasserIds().includes(distributorOwnerId(distributor));
+}
+
 function scopedCustomers() {
   return state.customers.filter(canAccessCustomer);
+}
+
+function scopedDistributors() {
+  return (state.distributors || []).filter(canAccessDistributor);
 }
 
 function scopedCustomerIds() {
   return new Set(scopedCustomers().map((customer) => customer.id));
 }
 
+function scopedDistributorIds() {
+  return new Set(scopedDistributors().map((distributor) => distributor.id));
+}
+
+function scopedAccountIds() {
+  return new Set([...scopedCustomerIds(), ...scopedDistributorIds()]);
+}
+
+function canAccessAccountId(accountId) {
+  return scopedAccountIds().has(accountId);
+}
+
 function scopedVisits() {
-  const customerIds = scopedCustomerIds();
+  const accountIds = scopedAccountIds();
   const visibleUsers = new Set(visibleCanvasserIds());
-  return state.visits.filter((visit) => customerIds.has(visit.customerId) || visibleUsers.has(userIdByName(visit.createdBy)));
+  return state.visits.filter((visit) => accountIds.has(visit.customerId) || visibleUsers.has(userIdByName(visit.createdBy)));
 }
 
 function scopedFollowups() {
-  const customerIds = scopedCustomerIds();
-  return state.followups.filter((followup) => customerIds.has(followup.customerId));
+  const accountIds = scopedAccountIds();
+  return state.followups.filter((followup) => accountIds.has(followup.customerId));
 }
 
 function scopedSales() {
-  const customerIds = scopedCustomerIds();
+  const accountIds = scopedAccountIds();
   const visibleUsers = new Set(visibleCanvasserIds());
-  return state.sales.filter((sale) => customerIds.has(sale.customerId) || visibleUsers.has(userIdByName(sale.createdBy)));
+  return state.sales.filter((sale) => accountIds.has(sale.customerId) || visibleUsers.has(userIdByName(sale.createdBy)));
 }
 
 function scopedComplaints() {
-  const customerIds = scopedCustomerIds();
-  return state.complaints.filter((complaint) => customerIds.has(complaint.customerId));
+  const accountIds = scopedAccountIds();
+  return state.complaints.filter((complaint) => accountIds.has(complaint.customerId));
 }
 
 function scopedData() {
   return {
     customers: scopedCustomers(),
+    distributors: scopedDistributors(),
     visits: scopedVisits(),
     followups: scopedFollowups(),
     sales: scopedSales(),
@@ -890,7 +1018,11 @@ function canDeleteBusinessRecords() {
 }
 
 function defaultCustomerId() {
-  return scopedCustomers()[0]?.id || state.customers[0]?.id || "";
+  return defaultAccountId();
+}
+
+function defaultAccountId() {
+  return scopedCustomers()[0]?.id || scopedDistributors()[0]?.id || state.customers[0]?.id || state.distributors?.[0]?.id || "";
 }
 
 function render() {
@@ -898,6 +1030,7 @@ function render() {
   const views = {
     dashboard: renderDashboard,
     customers: renderCustomers,
+    distributors: renderDistributors,
     visits: renderVisits,
     followups: renderFollowups,
     sales: renderSales,
@@ -926,7 +1059,7 @@ function renderAccessBar() {
       ? ui.canvasserFilter === "all"
         ? `Can view this region's canvassers: ${teamNames || "No canvassers assigned"}.`
         : `Can view this region; filtered to ${selectedCanvasser}.`
-      : "Can view only customers and activity assigned to this canvasser.";
+      : "Can view only customers, distributors, and activity assigned to this canvasser.";
 
   return `
     <section class="access-bar">
@@ -937,6 +1070,7 @@ function renderAccessBar() {
       </div>
       <div class="access-counts">
         <span>${data.customers.length} customers</span>
+        <span>${data.distributors.length} distributors</span>
         <span>${data.visits.length} visits</span>
         <span>${money(data.sales.reduce((sum, sale) => sum + saleTotal(sale), 0))} sales</span>
       </div>
@@ -1040,6 +1174,10 @@ function handleInput(event) {
     ui.customerFilter = event.target.value.trim().toLowerCase();
     updateCustomerTable();
   }
+  if (event.target.matches("[data-distributor-filter]")) {
+    ui.distributorFilter = event.target.value.trim().toLowerCase();
+    updateDistributorTable();
+  }
   if (event.target.matches("[data-autototal]")) {
     updateSaleTotalPreview();
   }
@@ -1065,6 +1203,9 @@ function handleChange(event) {
   if (event.target.matches("[data-customer-filter-select]")) {
     updateCustomerTable();
   }
+  if (event.target.matches("[data-distributor-filter-select]")) {
+    updateDistributorTable();
+  }
   if (event.target.matches("[data-autototal]")) {
     updateSaleTotalPreview();
   }
@@ -1083,6 +1224,15 @@ function runAction(action, data) {
       break;
     case "save-customer":
       saveCustomer();
+      break;
+    case "open-distributor":
+      openDistributorModal(id);
+      break;
+    case "new-distributor":
+      openDistributorModal();
+      break;
+    case "save-distributor":
+      saveDistributor();
       break;
     case "open-bird":
       openBirdModal(id, customerId);
@@ -1197,6 +1347,9 @@ function runAction(action, data) {
     case "customer-tab":
       switchCustomerTab(data.tab);
       break;
+    case "distributor-tab":
+      switchDistributorTab(data.tab);
+      break;
     default:
       toast("Action wired for prototype");
   }
@@ -1215,13 +1368,13 @@ function renderDashboard() {
     <section class="dashboard-hero">
       <div>
         <h1>${ui.role === "admin" ? "Back Office Sales Monitor" : ui.role === "manager" ? "Area Team Sales Monitor" : `Today with ${currentUserName()}`}</h1>
-        <p>${ui.role === "canvasser" ? "Customer visits, action points, sales, and issue tracking for field work." : "Customers, visits, sales, follow-ups, and complaints inside the current access scope."}</p>
+        <p>${ui.role === "canvasser" ? "Customer and distributor visits, action points, sales, and issue tracking for field work." : "Customers, distributors, visits, sales, follow-ups, and complaints inside the current access scope."}</p>
       </div>
     </section>
 
     <section class="metric-grid">
       ${metric("users", metrics.customers, "Total Customers")}
-      ${metric("user-plus", metrics.newThisMonth, "New This Month")}
+      ${metric("store", metrics.distributors, "Distributors")}
       ${metric("clipboard-check", metrics.visitsToday, "Visits Today")}
       ${metric("calendar-clock", metrics.pendingFollowups, "Pending Follow-ups")}
       ${metric("receipt", money(metrics.salesToday), "Sales Today")}
@@ -1230,6 +1383,7 @@ function renderDashboard() {
 
     <section class="quick-grid">
       <button class="btn primary" data-action="new-customer"><i data-lucide="user-plus"></i>Add Customer</button>
+      <button class="btn" data-action="new-distributor"><i data-lucide="store"></i>Add Distributor</button>
       <button class="btn" data-action="new-visit"><i data-lucide="map-pin"></i>Start Visit</button>
       <button class="btn" data-view="followups"><i data-lucide="calendar-check"></i>Follow-ups</button>
       <button class="btn" data-action="new-sale"><i data-lucide="receipt"></i>Record Sale</button>
@@ -1296,13 +1450,39 @@ function renderCustomers() {
   `;
 }
 
+function renderDistributors() {
+  const data = scopedData();
+  return `
+    <section class="page-head">
+      <div>
+        <h1>Distributors</h1>
+        <p>Feed distributor records with coverage area, warehouse details, GPS tags, visits, sales, complaints, and follow-ups.</p>
+      </div>
+      <div class="page-actions">
+        <button class="btn primary" data-action="new-distributor"><i data-lucide="store"></i>Add Distributor</button>
+      </div>
+    </section>
+
+    <section class="toolbar">
+      <input data-distributor-filter type="search" placeholder="Business, contact, phone, or coverage" value="${escapeAttr(ui.distributorFilter)}" />
+      ${select("distributorLocationFilter", unique(data.distributors.map((d) => d.town)), "", "All locations", "data-distributor-filter-select")}
+      ${select("distributorTypeFilter", lists.distributorTypes, "", "All types", "data-distributor-filter-select")}
+      ${select("distributorStatusFilter", lists.distributorCategories, "", "All statuses", "data-distributor-filter-select")}
+    </section>
+
+    <section class="panel">
+      <div id="distributorTableSlot">${distributorTable(getFilteredDistributors())}</div>
+    </section>
+  `;
+}
+
 function renderVisits() {
-  const visits = filterByGlobal(scopedVisits(), (visit) => `${customerName(visit.customerId)} ${visit.type} ${visit.personMet} ${visit.summary}`);
+  const visits = filterByGlobal(scopedVisits(), (visit) => `${accountName(visit.customerId)} ${visit.type} ${visit.personMet} ${visit.summary}`);
   return `
     <section class="page-head">
       <div>
         <h1>Visits</h1>
-        <p>Field notes, GPS visit location, farm observations, next steps, and visit history.</p>
+        <p>Field notes, GPS visit location, observations, next steps, and visit history for customers and distributors.</p>
       </div>
       <div class="page-actions">
         <button class="btn primary" data-action="new-visit"><i data-lucide="clipboard-plus"></i>Start Visit</button>
@@ -1313,12 +1493,12 @@ function renderVisits() {
 }
 
 function renderFollowups() {
-  const rows = filterByGlobal(scopedFollowups(), (followup) => `${customerName(followup.customerId)} ${followup.action} ${followup.responsible} ${followup.status}`);
+  const rows = filterByGlobal(scopedFollowups(), (followup) => `${accountName(followup.customerId)} ${followup.action} ${followup.responsible} ${followup.status}`);
   return `
     <section class="page-head">
       <div>
         <h1>Follow-ups</h1>
-        <p>Pending and overdue action points from customer visits.</p>
+        <p>Pending and overdue action points from customer and distributor visits.</p>
       </div>
       <div class="page-actions">
         <button class="btn primary" data-action="new-followup"><i data-lucide="calendar-plus"></i>Add Follow-up</button>
@@ -1329,7 +1509,7 @@ function renderFollowups() {
 }
 
 function renderSales() {
-  const rows = filterByGlobal(scopedSales(), (sale) => `${customerName(sale.customerId)} ${sale.invoice} ${sale.paymentStatus} ${sale.items.map((item) => item.product).join(" ")}`);
+  const rows = filterByGlobal(scopedSales(), (sale) => `${accountName(sale.customerId)} ${sale.invoice} ${sale.paymentStatus} ${sale.items.map((item) => item.product).join(" ")}`);
   return `
     <section class="page-head">
       <div>
@@ -1345,12 +1525,12 @@ function renderSales() {
 }
 
 function renderComplaints() {
-  const rows = filterByGlobal(scopedComplaints(), (complaint) => `${customerName(complaint.customerId)} ${complaint.category} ${complaint.product} ${complaint.status}`);
+  const rows = filterByGlobal(scopedComplaints(), (complaint) => `${accountName(complaint.customerId)} ${complaint.category} ${complaint.product} ${complaint.status}`);
   return `
     <section class="page-head">
       <div>
         <h1>Complaints</h1>
-        <p>Customer complaints, severity, product involved, immediate action, assignment, and resolution notes.</p>
+        <p>Customer and distributor complaints, severity, product involved, immediate action, assignment, and resolution notes.</p>
       </div>
       <div class="page-actions">
         <button class="btn primary" data-action="new-complaint"><i data-lucide="message-square-plus"></i>Record Complaint</button>
@@ -1374,7 +1554,7 @@ function renderReports() {
     <section class="page-head">
       <div>
         <h1>${ui.role === "canvasser" ? "My Reports" : "Management Reports"}</h1>
-        <p>Employee, customer, product, location, complaint, sales value, and follow-up summaries.</p>
+        <p>Employee, customer, distributor, product, location, complaint, sales value, and follow-up summaries.</p>
       </div>
       <div class="page-actions">
         <button class="btn" data-action="export-csv"><i data-lucide="file-spreadsheet"></i>Excel CSV</button>
@@ -1384,7 +1564,7 @@ function renderReports() {
 
     <section class="metric-grid">
       ${metric("user-round-check", assignableCanvassers().length, "Canvassers")}
-      ${metric("map", unique(data.customers.map((c) => c.town)).length, "Locations")}
+      ${metric("map", unique([...data.customers.map((c) => c.town), ...data.distributors.map((d) => d.town)]).length, "Locations")}
       ${metric("banknote", money(totalSales(data.sales)), "Sales Value")}
       ${metric("boxes", totalQuantity(data.sales), "Bags / Units")}
       ${metric("calendar-x", overdueFollowups(data.followups).length, "Overdue")}
@@ -1396,7 +1576,7 @@ function renderReports() {
       ${reportPanel("Sales by Product", currencyChart(byProduct))}
       ${reportPanel("Visits by Employee", countChart(visitsByEmployee))}
       ${reportPanel("Complaint Status", countChart(complaintsByStatus))}
-      ${reportPanel("Customer Location Map", `<div class="map-preview">${data.customers.length} tagged customers across ${unique(data.customers.map((c) => c.town)).join(", ")}</div>`)}
+      ${reportPanel("Account Location Map", `<div class="map-preview">${data.customers.length} customers and ${data.distributors.length} distributors across ${unique([...data.customers.map((c) => c.town), ...data.distributors.map((d) => d.town)]).filter(Boolean).join(", ") || "no tagged locations"}</div>`)}
       ${reportPanel("Follow-up Monitor", compactFollowupTable(data.followups.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5)))}
     </section>
   `;
@@ -1486,16 +1666,52 @@ function customerTable(rows) {
   `;
 }
 
+function distributorTable(rows) {
+  if (!rows.length) return emptyState("store", "No distributors match the current filters.");
+  return `
+    <div class="customer-list">
+      ${lineItemHeader(["Distributor", "Coverage / Type", "Activity"])}
+      ${rows.map((distributor) => {
+        const lastVisit = lastVisitDate(distributor.id) || "No visit";
+        const openComplaints = state.complaints.filter((complaint) => complaint.customerId === distributor.id && !["Closed", "Resolved"].includes(complaint.status)).length;
+        const pendingFollowups = state.followups.filter((followup) => followup.customerId === distributor.id && followup.status !== "Completed").length;
+        return `
+          <button type="button" class="customer-row" data-action="open-distributor" data-id="${distributor.id}" aria-label="Open ${escapeAttr(distributor.businessName)}">
+            <span class="customer-main">
+              <span class="customer-title">
+                <strong class="truncate">${distributor.businessName}</strong>
+                ${recordStatusBadge(distributor, statusBadge(distributor.category))}
+              </span>
+              <span class="customer-subline truncate">${distributor.contact} - ${distributor.phone}</span>
+            </span>
+            <span class="customer-meta">
+              <span class="truncate"><i data-lucide="map-pin"></i>${distributor.town || "No town"}, ${distributor.state || "No state"} - ${distributor.distributorType || "Distributor"} - ${distributor.monthlyVolume || "No volume"}</span>
+            </span>
+            <span class="customer-side">
+              <small>Last: ${lastVisit}</small>
+              <span class="customer-badges">
+                ${pendingFollowups ? `<span class="badge pending">${pendingFollowups} follow-up</span>` : ""}
+                ${openComplaints ? `<span class="badge open">${openComplaints} complaint</span>` : ""}
+              </span>
+            </span>
+            <i class="customer-chevron" data-lucide="chevron-right"></i>
+          </button>
+        `;
+      }).join("")}
+    </div>
+  `;
+}
+
 function compactVisitTable(rows) {
   if (!rows.length) return emptyState("clipboard-list", "No visit records yet.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Customer / Visit", "Date / Next Step", "Follow-up"])}
+      ${lineItemHeader(["Account / Visit", "Date / Next Step", "Follow-up"])}
       ${rows.map((visit) => `
-        <button type="button" class="customer-row" data-action="open-visit" data-id="${visit.id}" data-customer="${visit.customerId}" aria-label="Open visit for ${escapeAttr(customerName(visit.customerId))}">
+        <button type="button" class="customer-row" data-action="open-visit" data-id="${visit.id}" data-customer="${visit.customerId}" aria-label="Open visit for ${escapeAttr(accountName(visit.customerId))}">
           <span class="customer-main">
               <span class="customer-title">
-                <strong class="truncate">${customerName(visit.customerId)}</strong>
+                <strong class="truncate">${accountName(visit.customerId)}</strong>
                 ${recordStatusBadge(visit, statusBadge(visit.type))}
             </span>
             <span class="customer-subline truncate">${visit.personMet || "Person not recorded"} - ${visit.summary || visit.purpose || "No summary"}</span>
@@ -1518,12 +1734,12 @@ function compactFollowupTable(rows) {
   if (!rows.length) return emptyState("calendar-check", "No action points yet.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Customer / Action", "Due / Owner", "Status"])}
+      ${lineItemHeader(["Account / Action", "Due / Owner", "Status"])}
       ${rows.map((followup) => `
-        <button type="button" class="customer-row" data-action="open-followup" data-id="${followup.id}" data-customer="${followup.customerId}" aria-label="Open follow-up for ${escapeAttr(customerName(followup.customerId))}">
+        <button type="button" class="customer-row" data-action="open-followup" data-id="${followup.id}" data-customer="${followup.customerId}" aria-label="Open follow-up for ${escapeAttr(accountName(followup.customerId))}">
           <span class="customer-main">
               <span class="customer-title">
-                <strong class="truncate">${customerName(followup.customerId)}</strong>
+                <strong class="truncate">${accountName(followup.customerId)}</strong>
                 ${recordStatusBadge(followup, priorityBadge(followup.priority))}
             </span>
             <span class="customer-subline truncate">${followup.action || "No action point"}</span>
@@ -1546,15 +1762,15 @@ function compactSalesTable(rows) {
   if (!rows.length) return emptyState("receipt", "No sales records yet.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Customer / Items", "Value / Invoice", "Delivery"])}
+      ${lineItemHeader(["Account / Items", "Value / Invoice", "Delivery"])}
       ${rows.map((sale) => {
         const products = sale.items.map((item) => item.product).join(", ");
         const quantity = sale.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
         return `
-          <button type="button" class="customer-row" data-action="open-sale" data-id="${sale.id}" data-customer="${sale.customerId}" aria-label="Open sale for ${escapeAttr(customerName(sale.customerId))}">
+          <button type="button" class="customer-row" data-action="open-sale" data-id="${sale.id}" data-customer="${sale.customerId}" aria-label="Open sale for ${escapeAttr(accountName(sale.customerId))}">
             <span class="customer-main">
               <span class="customer-title">
-                <strong class="truncate">${customerName(sale.customerId)}</strong>
+                <strong class="truncate">${accountName(sale.customerId)}</strong>
                 ${recordStatusBadge(sale, statusBadge(sale.paymentStatus))}
               </span>
               <span class="customer-subline truncate">${products || "No products"} - ${formatNumber(quantity)} ${quantity === 1 ? "unit" : "units"}</span>
@@ -1578,12 +1794,12 @@ function compactComplaintTable(rows) {
   if (!rows.length) return emptyState("message-square-warning", "No complaints recorded.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Customer / Complaint", "Date / Details", "Status"])}
+      ${lineItemHeader(["Account / Complaint", "Date / Details", "Status"])}
       ${rows.map((complaint) => `
-        <button type="button" class="customer-row" data-action="open-complaint" data-id="${complaint.id}" data-customer="${complaint.customerId}" aria-label="Open complaint for ${escapeAttr(customerName(complaint.customerId))}">
+        <button type="button" class="customer-row" data-action="open-complaint" data-id="${complaint.id}" data-customer="${complaint.customerId}" aria-label="Open complaint for ${escapeAttr(accountName(complaint.customerId))}">
           <span class="customer-main">
               <span class="customer-title">
-                <strong class="truncate">${customerName(complaint.customerId)}</strong>
+                <strong class="truncate">${accountName(complaint.customerId)}</strong>
               ${recordStatusBadge(complaint, severityBadge(complaint.severity))}
             </span>
             <span class="customer-subline truncate">${complaint.category} - ${complaint.product || "No product"}</span>
@@ -1702,6 +1918,7 @@ function recordActionButton(collection, id, customerId = "") {
 function collectionLabel(collection) {
   return ({
     customers: "Customer",
+    distributors: "Distributor",
     visits: "Visit",
     followups: "Follow-up",
     sales: "Sale",
@@ -1868,6 +2085,153 @@ function customerForm(customer) {
   `;
 }
 
+function openDistributorModal(id = "") {
+  const isNew = !id;
+  const distributor = isNew ? blankDistributor() : state.distributors.find((item) => item.id === id);
+  if (!distributor || (!isNew && !canAccessDistributor(distributor))) {
+    toast("This distributor is outside the current access scope");
+    return;
+  }
+  const activeTab = "profile";
+  openModal(isNew ? "Add Distributor" : distributor.businessName, distributorModalBody(distributor, activeTab), {
+    size: "wide",
+    footer: `
+      ${isNew ? "" : `<button class="btn" data-action="new-visit" data-customer="${distributor.id}"><i data-lucide="map-pin"></i>Visit</button>`}
+      ${isNew ? "" : `<button class="btn" data-action="new-followup" data-customer="${distributor.id}"><i data-lucide="calendar-plus"></i>Follow-up</button>`}
+      ${isNew ? "" : `<button class="btn" data-action="new-sale" data-customer="${distributor.id}"><i data-lucide="receipt"></i>Sale</button>`}
+      ${isNew ? "" : `<button class="btn" data-action="new-complaint" data-customer="${distributor.id}"><i data-lucide="message-square-plus"></i>Complaint</button>`}
+      ${isNew ? "" : recordActionButton("distributors", distributor.id, distributor.id)}
+      <button class="btn" data-action="close-modal">Close</button>
+      <button class="btn primary" data-action="save-distributor"><i data-lucide="save"></i>Save</button>
+    `
+  });
+}
+
+function distributorModalBody(distributor, tab) {
+  return `
+    <div class="modal-tabs" data-distributor-tabs="${distributor.id}">
+      ${["profile", "visits", "sales", "complaints", "followups", "audit"].map((item) => `
+        <button data-action="distributor-tab" data-tab="${item}" class="${item === tab ? "active" : ""}">${titleCase(item)}</button>
+      `).join("")}
+    </div>
+    <div id="distributorTabContent">
+      ${distributorTabContent(distributor, tab)}
+    </div>
+  `;
+}
+
+function distributorTabContent(distributor, tab) {
+  if (tab === "profile") return distributorForm(distributor);
+  if (tab === "visits") {
+    return `
+      <div class="section-title">
+        <h3>Visit History</h3>
+        <button class="btn primary" data-action="new-visit" data-customer="${distributor.id}"><i data-lucide="clipboard-plus"></i>Start Visit</button>
+      </div>
+      ${compactVisitTable(state.visits.filter((visit) => visit.customerId === distributor.id))}
+    `;
+  }
+  if (tab === "sales") {
+    return `
+      <div class="section-title">
+        <h3>Sales History</h3>
+        <button class="btn primary" data-action="new-sale" data-customer="${distributor.id}"><i data-lucide="receipt"></i>Add Sale</button>
+      </div>
+      ${compactSalesTable(state.sales.filter((sale) => sale.customerId === distributor.id))}
+    `;
+  }
+  if (tab === "complaints") {
+    return `
+      <div class="section-title">
+        <h3>Complaints & Feedback</h3>
+        <button class="btn primary" data-action="new-complaint" data-customer="${distributor.id}"><i data-lucide="message-square-plus"></i>Add Complaint</button>
+      </div>
+      ${compactComplaintTable(state.complaints.filter((complaint) => complaint.customerId === distributor.id))}
+    `;
+  }
+  if (tab === "followups") {
+    return `
+      <div class="section-title">
+        <h3>Follow-up Action Points</h3>
+        <button class="btn primary" data-action="new-followup" data-customer="${distributor.id}"><i data-lucide="calendar-plus"></i>Add Follow-up</button>
+      </div>
+      ${compactFollowupTable(state.followups.filter((followup) => followup.customerId === distributor.id))}
+    `;
+  }
+  return `
+    <div class="mini-grid">
+      ${fact("Created By", distributor.createdBy || "-")}
+      ${fact("Created Date", distributor.createdAt || "-")}
+      ${fact("Last Edited", `${distributor.updatedBy || "-"} / ${distributor.updatedAt || "-"}`)}
+    </div>
+    <div class="section-title"><h3>Recent Audit Logs</h3></div>
+    ${auditTable(distributor.id)}
+  `;
+}
+
+function switchDistributorTab(tab) {
+  const tabs = document.querySelector("[data-distributor-tabs]");
+  if (!tabs) return;
+  const distributorId = tabs.dataset.distributorTabs;
+  const form = document.getElementById("distributorForm");
+  let distributor = state.distributors.find((item) => item.id === distributorId) || blankDistributor();
+  if (form) {
+    distributor = { ...distributor, ...serializeForm(form) };
+  }
+  tabs.querySelectorAll("button").forEach((button) => button.classList.toggle("active", button.dataset.tab === tab));
+  document.getElementById("distributorTabContent").innerHTML = distributorTabContent(distributor, tab);
+  refreshIcons();
+}
+
+function distributorForm(distributor) {
+  return `
+    ${voidNotice(distributor)}
+    <form id="distributorForm" data-id="${distributor.id || ""}">
+      <div class="mini-grid">
+        ${fact("Last Visit", lastVisitDate(distributor.id) || "None")}
+        ${fact("Total Sales Value", money(customerSalesTotal(distributor.id)))}
+        ${fact("Open Complaints", state.complaints.filter((c) => c.customerId === distributor.id && !["Closed", "Resolved"].includes(c.status)).length)}
+      </div>
+      <div class="section-title"><h3>Distributor Basic Details</h3></div>
+      <div class="form-grid">
+        ${input("businessName", "Distributor / Business Name", distributor.businessName, true)}
+        ${input("contact", "Contact Person Name", distributor.contact, true)}
+        ${input("phone", "Phone Number", distributor.phone, true)}
+        ${input("altPhone", "Alternative Phone Number", distributor.altPhone)}
+        ${input("email", "Email Address", distributor.email, false, "email")}
+        ${input("address", "Business / Warehouse Address", distributor.address, true)}
+        ${input("state", "State / Region", distributor.state)}
+        ${input("lga", "Local Government / District", distributor.lga)}
+        ${input("town", "Town / City", distributor.town)}
+        ${selectField("category", "Distributor Status", lists.distributorCategories, distributor.category)}
+        ${selectField("distributorType", "Distributor Type", lists.distributorTypes, distributor.distributorType)}
+        ${canvasserSelectField("ownerId", "Assigned Canvasser", distributorOwnerId(distributor))}
+      </div>
+      <div class="section-title"><h3>Location Tagging</h3></div>
+      <div class="form-grid three">
+        ${input("lat", "Latitude", distributor.lat, true)}
+        ${input("lng", "Longitude", distributor.lng, true)}
+        ${input("accuracy", `Location Accuracy (${GPS_MAX_ACCURACY_METERS}m or better)`, distributor.accuracy, true)}
+        <div class="full field-row">
+          <button class="btn warning" data-action="capture-gps" data-prefix=""><i data-lucide="locate-fixed"></i>Capture GPS Location</button>
+          <button class="btn" data-action="capture-gps" data-prefix=""><i data-lucide="map-pin"></i>Retag Location</button>
+        </div>
+        <div class="full map-preview">${distributor.lat && distributor.lng ? `${distributor.lat}, ${distributor.lng}` : "Location not tagged"}</div>
+      </div>
+      <div class="section-title"><h3>Distributor Operations</h3></div>
+      <div class="form-grid">
+        ${textarea("coverageArea", "Coverage Area / Sales Route", distributor.coverageArea, "full")}
+        ${input("monthlyVolume", "Estimated Monthly Feed Volume", distributor.monthlyVolume)}
+        ${input("brandsCarried", "Brands Currently Carried", distributor.brandsCarried)}
+        ${input("warehouseCapacity", "Warehouse / Stock Capacity", distributor.warehouseCapacity)}
+        ${input("deliveryFleet", "Delivery Fleet / Logistics", distributor.deliveryFleet)}
+        ${selectField("paymentTerms", "Preferred Payment Terms", lists.paymentTerms, distributor.paymentTerms)}
+        ${textarea("notes", "Notes", distributor.notes, "full")}
+      </div>
+    </form>
+  `;
+}
+
 function birdTable(rows, customerId) {
   if (!rows.length) return emptyState("egg", "No bird capacity line items yet.");
   return `
@@ -1916,15 +2280,15 @@ function openBirdModal(id = "", customerId = "") {
 
 function openVisitModal(id = "", customerId = "") {
   const visit = id ? state.visits.find((item) => item.id === id) : blankVisit(customerId);
-  if (!visit || !canAccessCustomer(state.customers.find((customer) => customer.id === visit.customerId))) {
+  if (!visit || !canAccessAccountId(visit.customerId)) {
     toast("This visit is outside the current access scope");
     return;
   }
-  openModal(id ? "Visit Details" : "Start Customer Visit", `
+  openModal(id ? "Visit Details" : "Start Account Visit", `
     ${voidNotice(visit)}
     <form id="visitForm" data-id="${visit.id || ""}">
       <div class="form-grid">
-        ${customerSelect("customerId", "Customer Name", visit.customerId)}
+        ${accountSelect("customerId", "Customer / Distributor", visit.customerId)}
         ${input("date", "Visit Date", visit.date, true, "date")}
         ${input("time", "Visit Time", formatTime(visit.time), true, "time")}
         <div class="field-row full">
@@ -1959,7 +2323,7 @@ function openVisitModal(id = "", customerId = "") {
 
 function openFollowupModal(id = "", customerId = "") {
   const followup = id ? state.followups.find((item) => item.id === id) : blankFollowup(customerId);
-  if (!followup || !canAccessCustomer(state.customers.find((customer) => customer.id === followup.customerId))) {
+  if (!followup || !canAccessAccountId(followup.customerId)) {
     toast("This follow-up is outside the current access scope");
     return;
   }
@@ -1967,7 +2331,7 @@ function openFollowupModal(id = "", customerId = "") {
     ${voidNotice(followup)}
     <form id="followupForm" data-id="${followup.id || ""}">
       <div class="form-grid">
-        ${customerSelect("customerId", "Customer Name", followup.customerId)}
+        ${accountSelect("customerId", "Customer / Distributor", followup.customerId)}
         ${visitSelect("visitId", "Related Visit", followup.visitId, followup.customerId)}
         ${textarea("action", "Action Point", followup.action, "full")}
         ${input("responsible", "Responsible Person", followup.responsible)}
@@ -1989,7 +2353,7 @@ function openFollowupModal(id = "", customerId = "") {
 
 function openSaleModal(id = "", customerId = "") {
   const sale = id ? state.sales.find((item) => item.id === id) : blankSale(customerId);
-  if (!sale || !canAccessCustomer(state.customers.find((customer) => customer.id === sale.customerId))) {
+  if (!sale || !canAccessAccountId(sale.customerId)) {
     toast("This sale is outside the current access scope");
     return;
   }
@@ -1998,7 +2362,7 @@ function openSaleModal(id = "", customerId = "") {
     ${voidNotice(sale)}
     <form id="saleForm" data-id="${sale.id || ""}" data-item="${item.id || ""}">
       <div class="form-grid">
-        ${customerSelect("customerId", "Customer Name", sale.customerId)}
+        ${accountSelect("customerId", "Customer / Distributor", sale.customerId)}
         ${visitSelect("visitId", "Visit Reference", sale.visitId, sale.customerId, true)}
         ${input("date", "Sale Date", sale.date, true, "date")}
         ${input("invoice", "Invoice / Receipt Number", sale.invoice)}
@@ -2035,7 +2399,7 @@ function openSaleModal(id = "", customerId = "") {
 
 function openComplaintModal(id = "", customerId = "") {
   const complaint = id ? state.complaints.find((item) => item.id === id) : blankComplaint(customerId);
-  if (!complaint || !canAccessCustomer(state.customers.find((customer) => customer.id === complaint.customerId))) {
+  if (!complaint || !canAccessAccountId(complaint.customerId)) {
     toast("This complaint is outside the current access scope");
     return;
   }
@@ -2043,7 +2407,7 @@ function openComplaintModal(id = "", customerId = "") {
     ${voidNotice(complaint)}
     <form id="complaintForm" data-id="${complaint.id || ""}">
       <div class="form-grid">
-        ${customerSelect("customerId", "Customer Name", complaint.customerId)}
+        ${accountSelect("customerId", "Customer / Distributor", complaint.customerId)}
         ${input("date", "Complaint Date", complaint.date, true, "date")}
         ${selectField("category", "Complaint Category", lists.complaintCategories, complaint.category)}
         ${selectField("product", "Product Involved", lists.products, complaint.product)}
@@ -2190,6 +2554,32 @@ function saveCustomer() {
   saveState();
   closeModal();
   toast("Customer saved");
+  render();
+}
+
+function saveDistributor() {
+  const form = document.getElementById("distributorForm");
+  if (!form.reportValidity()) return;
+  const values = serializeForm(form);
+  const id = form.dataset.id || makeId("d", state.distributors);
+  const existing = state.distributors.find((item) => item.id === id);
+  const now = today();
+  const record = {
+    ...blankDistributor(),
+    ...existing,
+    ...values,
+    id,
+    ownerId: values.ownerId || existing?.ownerId || currentUserProfile().id,
+    createdBy: existing?.createdBy || currentUserName(),
+    createdAt: existing?.createdAt || now,
+    updatedBy: currentUserName(),
+    updatedAt: now
+  };
+  upsert("distributors", record);
+  audit(id, existing ? "Edited distributor record" : "Created distributor record");
+  saveState();
+  closeModal();
+  toast("Distributor saved");
   render();
 }
 
@@ -2509,13 +2899,14 @@ function hasAssignedCanvassers(managerId) {
 }
 
 function hasAssignedCustomers(userId) {
-  return state.customers.some((customer) => customer.ownerId === userId);
+  return state.customers.some((customer) => customer.ownerId === userId)
+    || state.distributors.some((distributor) => distributor.ownerId === userId);
 }
 
 function userDeleteBlocker(user) {
   if (user.id === currentUserProfile()?.id) return "You cannot delete your own account";
   if (user.role === "Area Manager" && hasAssignedCanvassers(user.id)) return "Reassign this manager's canvassers before deleting the user";
-  if (user.role === "Canvasser" && hasAssignedCustomers(user.id)) return "Reassign this canvasser's customers before deleting the user";
+  if (user.role === "Canvasser" && hasAssignedCustomers(user.id)) return "Reassign this canvasser's customers/distributors before deleting the user";
   return "";
 }
 
@@ -2576,7 +2967,7 @@ function deleteBusinessRecord(collection, id) {
     toast("Only Sales Admin can delete records");
     return;
   }
-  if (!["customers", "visits", "followups", "sales", "complaints"].includes(collection)) {
+  if (!["customers", "distributors", "visits", "followups", "sales", "complaints"].includes(collection)) {
     toast("Delete is not available for this record");
     return;
   }
@@ -2585,6 +2976,14 @@ function deleteBusinessRecord(collection, id) {
     const relatedSaleIds = new Set(state.sales.filter((sale) => sale.customerId === id).map((sale) => sale.id));
     state.customers = state.customers.filter((item) => item.id !== id);
     state.birdDetails = state.birdDetails.filter((item) => item.customerId !== id);
+    state.visits = state.visits.filter((item) => item.customerId !== id);
+    state.followups = state.followups.filter((item) => item.customerId !== id);
+    state.sales = state.sales.filter((item) => item.customerId !== id);
+    state.complaints = state.complaints.filter((item) => item.customerId !== id);
+    state.auditLogs = state.auditLogs.filter((item) => item.customerId !== id && !relatedSaleIds.has(item.saleId));
+  } else if (collection === "distributors") {
+    const relatedSaleIds = new Set(state.sales.filter((sale) => sale.customerId === id).map((sale) => sale.id));
+    state.distributors = state.distributors.filter((item) => item.id !== id);
     state.visits = state.visits.filter((item) => item.customerId !== id);
     state.followups = state.followups.filter((item) => item.customerId !== id);
     state.sales = state.sales.filter((item) => item.customerId !== id);
@@ -2603,7 +3002,7 @@ function voidBusinessRecord(collection, id) {
     toast("Sales Admin can delete records instead");
     return;
   }
-  if (!["customers", "visits", "followups", "sales", "complaints"].includes(collection)) {
+  if (!["customers", "distributors", "visits", "followups", "sales", "complaints"].includes(collection)) {
     toast("Void is not available for this record");
     return;
   }
@@ -2804,6 +3203,14 @@ function updateCustomerTable() {
   }
 }
 
+function updateDistributorTable() {
+  const slot = document.getElementById("distributorTableSlot");
+  if (slot) {
+    slot.innerHTML = distributorTable(getFilteredDistributors());
+    refreshIcons();
+  }
+}
+
 function updateSaleTotalPreview() {
   const form = document.getElementById("saleForm");
   const slot = document.getElementById("saleTotalPreview");
@@ -2828,6 +3235,21 @@ function getFilteredCustomers() {
       const last = lastVisitDate(customer.id);
       const lastMatch = !lastVisitAfter || (last && last >= lastVisitAfter);
       return local && locationMatch && birdMatch && statusMatch && lastMatch;
+    });
+}
+
+function getFilteredDistributors() {
+  const location = document.getElementById("distributorLocationFilter")?.value || "";
+  const type = document.getElementById("distributorTypeFilter")?.value || "";
+  const status = document.getElementById("distributorStatusFilter")?.value || "";
+  return filterByGlobal(scopedDistributors(), (distributor) => `${distributor.businessName} ${distributor.contact} ${distributor.phone} ${distributor.town} ${distributor.distributorType} ${distributor.coverageArea}`)
+    .filter((distributor) => {
+      const text = `${distributor.businessName} ${distributor.contact} ${distributor.phone} ${distributor.coverageArea}`.toLowerCase();
+      const local = !ui.distributorFilter || text.includes(ui.distributorFilter);
+      const locationMatch = !location || distributor.town === location;
+      const typeMatch = !type || distributor.distributorType === type;
+      const statusMatch = !status || distributor.category === status;
+      return local && locationMatch && typeMatch && statusMatch;
     });
 }
 
@@ -2868,17 +3290,35 @@ function auditTable(customerId) {
 }
 
 function exportReportCsv() {
-  const customers = scopedCustomers();
+  const accounts = [
+    ...scopedCustomers().map((customer) => ({
+      id: customer.id,
+      type: "Customer",
+      name: customer.farmName,
+      location: `${customer.town}, ${customer.state}`,
+      status: customer.category,
+      details: `${customer.farmType} / ${formatNumber(customer.capacity)} birds`
+    })),
+    ...scopedDistributors().map((distributor) => ({
+      id: distributor.id,
+      type: "Distributor",
+      name: distributor.businessName,
+      location: `${distributor.town}, ${distributor.state}`,
+      status: distributor.category,
+      details: `${distributor.distributorType} / ${distributor.monthlyVolume || "No volume"}`
+    }))
+  ];
   const rows = [
-    ["Customer", "Location", "Status", "Capacity", "Total Sales", "Open Complaints", "Pending Follow-ups"],
-    ...customers.map((customer) => [
-      customer.farmName,
-      `${customer.town}, ${customer.state}`,
-      customer.category,
-      customer.capacity,
-      customerSalesTotal(customer.id),
-      state.complaints.filter((c) => c.customerId === customer.id && !["Closed", "Resolved"].includes(c.status)).length,
-      state.followups.filter((f) => f.customerId === customer.id && f.status !== "Completed").length
+    ["Type", "Name", "Location", "Status", "Details", "Total Sales", "Open Complaints", "Pending Follow-ups"],
+    ...accounts.map((account) => [
+      account.type,
+      account.name,
+      account.location,
+      account.status,
+      account.details,
+      customerSalesTotal(account.id),
+      state.complaints.filter((c) => c.customerId === account.id && !["Closed", "Resolved"].includes(c.status)).length,
+      state.followups.filter((f) => f.customerId === account.id && f.status !== "Completed").length
     ])
   ];
   const csv = rows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(",")).join("\n");
@@ -2937,16 +3377,25 @@ function optionSelect(name, options, value = "all", placeholder = "", extra = ""
   `;
 }
 
-function customerSelect(name, labelText, value = "") {
+function accountSelect(name, labelText, value = "") {
   const customers = scopedCustomers();
+  const distributors = scopedDistributors();
+  const customerOptions = customers.map((customer) => `<option value="${customer.id}" ${customer.id === value ? "selected" : ""}>${customer.farmName}</option>`).join("");
+  const distributorOptions = distributors.map((distributor) => `<option value="${distributor.id}" ${distributor.id === value ? "selected" : ""}>${distributor.businessName}</option>`).join("");
   return `
     <label>
       ${labelText}
       <select name="${name}">
-        ${customers.map((customer) => `<option value="${customer.id}" ${customer.id === value ? "selected" : ""}>${customer.farmName}</option>`).join("")}
+        ${customerOptions ? `<optgroup label="Customers">${customerOptions}</optgroup>` : ""}
+        ${distributorOptions ? `<optgroup label="Distributors">${distributorOptions}</optgroup>` : ""}
+        ${!customerOptions && !distributorOptions ? `<option value="">No accessible accounts</option>` : ""}
       </select>
     </label>
   `;
+}
+
+function customerSelect(name, labelText, value = "") {
+  return accountSelect(name, labelText, value);
 }
 
 function canvasserSelectField(name, labelText, value = "") {
@@ -3077,6 +3526,7 @@ function customerSalesTotal(customerId) {
 function getMetrics(data = scopedData()) {
   return {
     customers: data.customers.length,
+    distributors: data.distributors.length,
     newThisMonth: data.customers.filter((customer) => customer.createdAt?.startsWith(today().slice(0, 7))).length,
     visitsToday: data.visits.filter((visit) => visit.date === today()).length,
     pendingFollowups: data.followups.filter((followup) => followup.status !== "Completed").length,
@@ -3085,12 +3535,34 @@ function getMetrics(data = scopedData()) {
   };
 }
 
+function accountById(id) {
+  return state.customers.find((customer) => customer.id === id) || state.distributors.find((distributor) => distributor.id === id) || null;
+}
+
+function accountName(idOrName) {
+  const account = accountById(idOrName);
+  if (!account) return idOrName || "";
+  return account.farmName || account.businessName || idOrName || "";
+}
+
+function accountTypeLabel(id) {
+  if (state.customers.some((customer) => customer.id === id)) return "Customer";
+  if (state.distributors.some((distributor) => distributor.id === id)) return "Distributor";
+  return "Account";
+}
+
+function accountIdFromName(name) {
+  return state.customers.find((customer) => customer.farmName === name)?.id
+    || state.distributors.find((distributor) => distributor.businessName === name)?.id
+    || name;
+}
+
 function customerName(idOrName) {
-  return state.customers.find((customer) => customer.id === idOrName)?.farmName || idOrName || "";
+  return accountName(idOrName);
 }
 
 function customerIdFromName(name) {
-  return state.customers.find((customer) => customer.farmName === name)?.id || name;
+  return accountIdFromName(name);
 }
 
 function visitLabel(id) {
@@ -3221,6 +3693,41 @@ function blankCustomer() {
     feedBrand: "",
     frequency: "",
     supplier: "",
+    notes: "",
+    lat: "",
+    lng: "",
+    accuracy: "",
+    ownerId: assignableCanvassers()[0]?.id || currentUserProfile().id,
+    createdBy: "",
+    createdAt: "",
+    updatedBy: "",
+    updatedAt: "",
+    voided: "",
+    voidedBy: "",
+    voidedAt: ""
+  };
+}
+
+function blankDistributor() {
+  return {
+    id: "",
+    businessName: "",
+    contact: "",
+    phone: "",
+    altPhone: "",
+    email: "",
+    address: "",
+    state: "Oyo",
+    lga: "",
+    town: "",
+    category: "Prospect",
+    distributorType: "Retail Distributor",
+    coverageArea: "",
+    monthlyVolume: "",
+    brandsCarried: "",
+    warehouseCapacity: "",
+    deliveryFleet: "",
+    paymentTerms: "Transfer",
     notes: "",
     lat: "",
     lng: "",
