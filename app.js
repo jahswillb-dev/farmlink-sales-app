@@ -20,7 +20,7 @@ const lists = {
   actionStatus: ["Pending", "In Progress", "Completed", "Cancelled"],
   paymentStatus: ["Paid", "Part Payment", "Credit"],
   deliveryStatus: ["Delivered", "Pending", "Partially Delivered", "Scheduled"],
-  complaintCategories: ["Product Quality", "Delivery Delay", "Wrong Product", "Damaged Bags", "Pricing Issue", "Poor Customer Service", "Short Supply", "Other"],
+  complaintCategories: ["Product Quality", "Delivery Delay", "Wrong Product", "Damaged Bags", "Pricing Issue", "Poor Service", "Short Supply", "Other"],
   complaintStatus: ["Open", "Under Review", "Resolved", "Closed"],
   severity: ["Low", "Medium", "High", "Critical"],
   products: ["Broiler Starter", "Broiler Grower", "Broiler Finisher", "Layer Mash", "Breeder Mash", "Concentrate", "Turkey Grower"],
@@ -330,10 +330,10 @@ const demoData = {
     { id: "b5", customerId: "c6", birdType: "Layer", breed: "Isa Brown", stage: "Layer", quantity: 5600, pen: "Layer block B", age: "28 weeks", mortality: "1.0%", feed: "Layer Mash", notes: "Strong repeat buyer in Ogun territory." }
   ],
   visits: [
-    { id: "v1", customerId: "c1", date: "2026-06-02", time: "09:20", gps: "7.4252, 3.8878", type: "Sales Visit", personMet: "Mr. Lawal", purpose: "Confirm reorder", summary: "Discussed finisher feed reorder and delivery timing.", observation: "Birds active, feed stock low.", currentFeed: "PrimeGrow", competitor: "No active competitor visit this week.", interest: "High", nextStep: "Send invoice and book delivery", followupDate: "2026-06-03", notes: "Customer requested early truck dispatch.", createdBy: "Ada Okafor", updatedAt: "2026-06-02" },
+    { id: "v1", customerId: "c1", date: "2026-06-02", time: "09:20", gps: "7.4252, 3.8878", type: "Sales Visit", personMet: "Mr. Lawal", purpose: "Confirm reorder", summary: "Discussed finisher feed reorder and delivery timing.", observation: "Birds active, feed stock low.", currentFeed: "PrimeGrow", competitor: "No active competitor visit this week.", interest: "High", nextStep: "Send invoice and book delivery", followupDate: "2026-06-03", notes: "Farm requested early truck dispatch.", createdBy: "Ada Okafor", updatedAt: "2026-06-02" },
     { id: "v2", customerId: "c2", date: "2026-06-01", time: "14:10", gps: "7.5281, 3.9146", type: "Routine Visit", personMet: "Mrs. Ajayi", purpose: "Layer mash pricing", summary: "Shared current price list and discussed credit policy.", observation: "Feed store clean, egg crate demand high.", currentFeed: "LayerBest", competitor: "Competitor offered discount for 100 bags.", interest: "Medium", nextStep: "Manager to approve introductory discount", followupDate: "2026-06-05", notes: "Price is main blocker.", createdBy: "Tunde Balogun", updatedAt: "2026-06-01" },
     { id: "v3", customerId: "c3", date: "2026-05-30", time: "11:00", gps: "Not tagged", type: "New Prospect", personMet: "Pastor Eze", purpose: "Product introduction", summary: "Introduced starter and grower feed line.", observation: "Pens need better ventilation.", currentFeed: "FarmPlus", competitor: "Open market supply only.", interest: "High", nextStep: "Arrange technical support visit", followupDate: "2026-06-04", notes: "Retag location on next visit.", createdBy: "Ada Okafor", updatedAt: "2026-05-30" },
-    { id: "v4", customerId: "c4", date: "2026-05-21", time: "16:35", gps: "7.4040, 3.8292", type: "Complaint Visit", personMet: "Engr. Bello", purpose: "Review damaged bags", summary: "Inspected affected bags and batch label.", observation: "Storage area dry, damage likely from delivery handling.", currentFeed: "NutriMax", competitor: "None discussed.", interest: "Low", nextStep: "Escalate batch photos to QA", followupDate: "2026-06-02", notes: "Customer waiting for replacement decision.", createdBy: "Tunde Balogun", updatedAt: "2026-05-21" },
+    { id: "v4", customerId: "c4", date: "2026-05-21", time: "16:35", gps: "7.4040, 3.8292", type: "Complaint Visit", personMet: "Engr. Bello", purpose: "Review damaged bags", summary: "Inspected affected bags and batch label.", observation: "Storage area dry, damage likely from delivery handling.", currentFeed: "NutriMax", competitor: "None discussed.", interest: "Low", nextStep: "Escalate batch photos to QA", followupDate: "2026-06-02", notes: "Farm waiting for replacement decision.", createdBy: "Tunde Balogun", updatedAt: "2026-05-21" },
     { id: "v5", customerId: "c6", date: "2026-06-02", time: "10:45", gps: "7.1608, 3.3483", type: "Routine Visit", personMet: "Mrs. Umeh", purpose: "Layer mash reorder", summary: "Confirmed stock level and next delivery volume.", observation: "Birds healthy, feed room needs pallet lift.", currentFeed: "LayerBest", competitor: "Dealer offered smaller discount.", interest: "High", nextStep: "Confirm 30-bag order with dispatch", followupDate: "2026-06-04", notes: "Owned by Bola Nwosu outside current area manager scope.", createdBy: "Bola Nwosu", updatedAt: "2026-06-02" },
     { id: "v6", customerId: "d1", date: "2026-06-03", time: "13:15", gps: "7.4318, 3.9142", type: "Sales Visit", personMet: "Mr. Adeola", purpose: "Distributor reorder plan", summary: "Reviewed warehouse stock, delivery route demand, and June bulk order plan.", observation: "Warehouse dry and well stacked. Layer feed moving fastest.", currentFeed: "LayerBest", competitor: "Competitor is offering free retail banners.", interest: "High", nextStep: "Send distributor price band and delivery calendar", followupDate: "2026-06-06", notes: "Needs management approval for larger credit line.", createdBy: "Ada Okafor", updatedAt: "2026-06-03" }
   ],
@@ -354,9 +354,9 @@ const demoData = {
   ],
   complaints: [
     { id: "cp1", customerId: "c4", date: "2026-05-21", category: "Damaged Bags", product: "Turkey Grower", batch: "TG-0526-04", quantity: "7 bags", description: "Outer bags torn during delivery.", severity: "High", actionTaken: "Photos taken and batch noted.", assignedTo: "QA Desk", status: "Under Review", resolutionNotes: "", dateResolved: "" },
-    { id: "cp2", customerId: "c2", date: "2026-05-28", category: "Pricing Issue", product: "Layer Mash", batch: "", quantity: "", description: "Customer says competitor price is lower.", severity: "Medium", actionTaken: "Escalated to manager for discount review.", assignedTo: "Miriam Yusuf", status: "Open", resolutionNotes: "", dateResolved: "" },
+    { id: "cp2", customerId: "c2", date: "2026-05-28", category: "Pricing Issue", product: "Layer Mash", batch: "", quantity: "", description: "Farm says competitor price is lower.", severity: "Medium", actionTaken: "Escalated to manager for discount review.", assignedTo: "Miriam Yusuf", status: "Open", resolutionNotes: "", dateResolved: "" },
     { id: "cp3", customerId: "c1", date: "2026-05-18", category: "Delivery Delay", product: "Broiler Grower", batch: "", quantity: "20 bags", description: "Truck arrived five hours late.", severity: "Low", actionTaken: "Apology issued and logistics informed.", assignedTo: "Dispatch Lead", status: "Resolved", resolutionNotes: "Dispatch window adjusted for next order.", dateResolved: "2026-05-19" },
-    { id: "cp4", customerId: "c6", date: "2026-05-31", category: "Short Supply", product: "Layer Mash", batch: "LM-0526-11", quantity: "2 bags", description: "Customer reported two bags short on delivery note.", severity: "Medium", actionTaken: "Dispatch asked to reconcile trip sheet.", assignedTo: "Sales Admin", status: "Open", resolutionNotes: "", dateResolved: "" },
+    { id: "cp4", customerId: "c6", date: "2026-05-31", category: "Short Supply", product: "Layer Mash", batch: "LM-0526-11", quantity: "2 bags", description: "Farm reported two bags short on delivery note.", severity: "Medium", actionTaken: "Dispatch asked to reconcile trip sheet.", assignedTo: "Sales Admin", status: "Open", resolutionNotes: "", dateResolved: "" },
     { id: "cp5", customerId: "d1", date: "2026-06-01", category: "Delivery Delay", product: "Layer Mash", batch: "LM-0601-02", quantity: "80 bags", description: "Distributor reported late arrival that affected retail resupply.", severity: "Medium", actionTaken: "Logged route delay and notified logistics.", assignedTo: "Dispatch Lead", status: "Open", resolutionNotes: "", dateResolved: "" }
   ],
   auditLogs: []
@@ -1059,7 +1059,7 @@ function renderAccessBar() {
       ? ui.canvasserFilter === "all"
         ? `Can view this region's canvassers: ${teamNames || "No canvassers assigned"}.`
         : `Can view this region; filtered to ${selectedCanvasser}.`
-      : "Can view only customers, distributors, and activity assigned to this canvasser.";
+      : "Can view only farms, distributors, and activity assigned to this canvasser.";
 
   return `
     <section class="access-bar">
@@ -1069,7 +1069,7 @@ function renderAccessBar() {
         <small>${scopeText}</small>
       </div>
       <div class="access-counts">
-        <span>${data.customers.length} customers</span>
+        <span>${data.customers.length} farms</span>
         <span>${data.distributors.length} distributors</span>
         <span>${data.visits.length} visits</span>
         <span>${money(data.sales.reduce((sum, sale) => sum + saleTotal(sale), 0))} sales</span>
@@ -1368,12 +1368,12 @@ function renderDashboard() {
     <section class="dashboard-hero">
       <div>
         <h1>${ui.role === "admin" ? "Back Office Sales Monitor" : ui.role === "manager" ? "Area Team Sales Monitor" : `Today with ${currentUserName()}`}</h1>
-        <p>${ui.role === "canvasser" ? "Customer and distributor visits, action points, sales, and issue tracking for field work." : "Customers, distributors, visits, sales, follow-ups, and complaints inside the current access scope."}</p>
+        <p>${ui.role === "canvasser" ? "Farm and distributor visits, action points, sales, and issue tracking for field work." : "Farms, distributors, visits, sales, follow-ups, and complaints inside the current access scope."}</p>
       </div>
     </section>
 
     <section class="metric-grid">
-      ${metric("users", metrics.customers, "Total Customers")}
+      ${metric("users", metrics.customers, "Total Farms")}
       ${metric("store", metrics.distributors, "Distributors")}
       ${metric("clipboard-check", metrics.visitsToday, "Visits Today")}
       ${metric("calendar-clock", metrics.pendingFollowups, "Pending Follow-ups")}
@@ -1382,7 +1382,7 @@ function renderDashboard() {
     </section>
 
     <section class="quick-grid">
-      <button class="btn primary" data-action="new-customer"><i data-lucide="user-plus"></i>Add Customer</button>
+      <button class="btn primary" data-action="new-customer"><i data-lucide="user-plus"></i>Add Farm</button>
       <button class="btn" data-action="new-distributor"><i data-lucide="store"></i>Add Distributor</button>
       <button class="btn" data-action="new-visit"><i data-lucide="map-pin"></i>Start Visit</button>
       <button class="btn" data-view="followups"><i data-lucide="calendar-check"></i>Follow-ups</button>
@@ -1401,8 +1401,8 @@ function renderDashboard() {
 
       <div class="panel">
         <div class="panel-head">
-          <h2>High Attention Customers</h2>
-          <button class="btn subtle" data-view="customers"><i data-lucide="arrow-right"></i>Customers</button>
+          <h2>High Attention Farms</h2>
+          <button class="btn subtle" data-view="customers"><i data-lucide="arrow-right"></i>Farms</button>
         </div>
         <div class="panel-body">
           <div class="chart-list">
@@ -1428,11 +1428,11 @@ function renderCustomers() {
   return `
     <section class="page-head">
       <div>
-        <h1>Customers</h1>
-        <p>Compact customer records with farm details, GPS tags, visits, sales, complaints, and follow-ups.</p>
+        <h1>Farms</h1>
+        <p>Compact farm records with farm details, GPS tags, visits, sales, complaints, and follow-ups.</p>
       </div>
       <div class="page-actions">
-        <button class="btn primary" data-action="new-customer"><i data-lucide="user-plus"></i>Add Customer</button>
+        <button class="btn primary" data-action="new-customer"><i data-lucide="user-plus"></i>Add Farm</button>
       </div>
     </section>
 
@@ -1482,7 +1482,7 @@ function renderVisits() {
     <section class="page-head">
       <div>
         <h1>Visits</h1>
-        <p>Field notes, GPS visit location, observations, next steps, and visit history for customers and distributors.</p>
+        <p>Field notes, GPS visit location, observations, next steps, and visit history for farms and distributors.</p>
       </div>
       <div class="page-actions">
         <button class="btn primary" data-action="new-visit"><i data-lucide="clipboard-plus"></i>Start Visit</button>
@@ -1498,7 +1498,7 @@ function renderFollowups() {
     <section class="page-head">
       <div>
         <h1>Follow-ups</h1>
-        <p>Pending and overdue action points from customer and distributor visits.</p>
+        <p>Pending and overdue action points from farm and distributor visits.</p>
       </div>
       <div class="page-actions">
         <button class="btn primary" data-action="new-followup"><i data-lucide="calendar-plus"></i>Add Follow-up</button>
@@ -1530,7 +1530,7 @@ function renderComplaints() {
     <section class="page-head">
       <div>
         <h1>Complaints</h1>
-        <p>Customer and distributor complaints, severity, product involved, immediate action, assignment, and resolution notes.</p>
+        <p>Farm and distributor complaints, severity, product involved, immediate action, assignment, and resolution notes.</p>
       </div>
       <div class="page-actions">
         <button class="btn primary" data-action="new-complaint"><i data-lucide="message-square-plus"></i>Record Complaint</button>
@@ -1554,7 +1554,7 @@ function renderReports() {
     <section class="page-head">
       <div>
         <h1>${ui.role === "canvasser" ? "My Reports" : "Management Reports"}</h1>
-        <p>Employee, customer, distributor, product, location, complaint, sales value, and follow-up summaries.</p>
+        <p>Employee, farm, distributor, product, location, complaint, sales value, and follow-up summaries.</p>
       </div>
       <div class="page-actions">
         <button class="btn" data-action="export-csv"><i data-lucide="file-spreadsheet"></i>Excel CSV</button>
@@ -1576,7 +1576,7 @@ function renderReports() {
       ${reportPanel("Sales by Product", currencyChart(byProduct))}
       ${reportPanel("Visits by Employee", countChart(visitsByEmployee))}
       ${reportPanel("Complaint Status", countChart(complaintsByStatus))}
-      ${reportPanel("Account Location Map", `<div class="map-preview">${data.customers.length} customers and ${data.distributors.length} distributors across ${unique([...data.customers.map((c) => c.town), ...data.distributors.map((d) => d.town)]).filter(Boolean).join(", ") || "no tagged locations"}</div>`)}
+      ${reportPanel("Account Location Map", `<div class="map-preview">${data.customers.length} farms and ${data.distributors.length} distributors across ${unique([...data.customers.map((c) => c.town), ...data.distributors.map((d) => d.town)]).filter(Boolean).join(", ") || "no tagged locations"}</div>`)}
       ${reportPanel("Follow-up Monitor", compactFollowupTable(data.followups.slice().sort((a, b) => a.dueDate.localeCompare(b.dueDate)).slice(0, 5)))}
     </section>
   `;
@@ -1631,10 +1631,10 @@ function reportPanel(title, body) {
 }
 
 function customerTable(rows) {
-  if (!rows.length) return emptyState("users", "No customers match the current filters.");
+  if (!rows.length) return emptyState("users", "No farms match the current filters.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Customer", "Location / Farm", "Activity"])}
+      ${lineItemHeader(["Farm", "Location / Birds", "Activity"])}
       ${rows.map((customer) => {
         const lastVisit = lastVisitDate(customer.id) || "No visit";
         const openComplaints = state.complaints.filter((complaint) => complaint.customerId === customer.id && !["Closed", "Resolved"].includes(complaint.status)).length;
@@ -1917,7 +1917,7 @@ function recordActionButton(collection, id, customerId = "") {
 
 function collectionLabel(collection) {
   return ({
-    customers: "Customer",
+    customers: "Farm",
     distributors: "Distributor",
     visits: "Visit",
     followups: "Follow-up",
@@ -1934,7 +1934,7 @@ function openCustomerModal(id = "") {
     return;
   }
   const activeTab = "farm";
-  openModal(isNew ? "Add Customer" : customer.farmName, customerModalBody(customer, activeTab), {
+  openModal(isNew ? "Add Farm" : customer.farmName, customerModalBody(customer, activeTab), {
     size: "wide",
     footer: `
       ${isNew ? "" : `<button class="btn" data-action="new-visit" data-customer="${customer.id}"><i data-lucide="map-pin"></i>Visit</button>`}
@@ -2042,9 +2042,9 @@ function customerForm(customer) {
         ${fact("Total Sales Value", money(customerSalesTotal(customer.id)))}
         ${fact("Open Complaints", state.complaints.filter((c) => c.customerId === customer.id && !["Closed", "Resolved"].includes(c.status)).length)}
       </div>
-      <div class="section-title"><h3>Customer Basic Details</h3></div>
+      <div class="section-title"><h3>Farm Basic Details</h3></div>
       <div class="form-grid">
-        ${input("farmName", "Customer / Farm Name", customer.farmName, true)}
+        ${input("farmName", "Farm Name", customer.farmName, true)}
         ${input("contact", "Contact Person Name", customer.contact, true)}
         ${input("phone", "Phone Number", customer.phone, true)}
         ${input("altPhone", "Alternative Phone Number", customer.altPhone)}
@@ -2053,7 +2053,7 @@ function customerForm(customer) {
         ${input("state", "State / Region", customer.state)}
         ${input("lga", "Local Government / District", customer.lga)}
         ${input("town", "Town / Village", customer.town)}
-        ${selectField("category", "Customer Category", lists.categories, customer.category)}
+        ${selectField("category", "Farm Status", lists.categories, customer.category)}
         ${canvasserSelectField("ownerId", "Assigned Canvasser", customerOwnerId(customer))}
       </div>
       <div class="section-title"><h3>Location Tagging</h3></div>
@@ -2288,7 +2288,7 @@ function openVisitModal(id = "", customerId = "") {
     ${voidNotice(visit)}
     <form id="visitForm" data-id="${visit.id || ""}">
       <div class="form-grid">
-        ${accountSelect("customerId", "Customer / Distributor", visit.customerId)}
+        ${accountSelect("customerId", "Farm / Distributor", visit.customerId)}
         ${input("date", "Visit Date", visit.date, true, "date")}
         ${input("time", "Visit Time", formatTime(visit.time), true, "time")}
         <div class="field-row full">
@@ -2300,7 +2300,7 @@ function openVisitModal(id = "", customerId = "") {
         ${input("purpose", "Purpose of Visit", visit.purpose)}
         ${input("currentFeed", "Current Feed Used", visit.currentFeed)}
         ${input("competitor", "Competitor Activity", visit.competitor)}
-        ${selectField("interest", "Customer Interest Level", ["Low", "Medium", "High"], visit.interest)}
+        ${selectField("interest", "Interest Level", ["Low", "Medium", "High"], visit.interest)}
         ${input("nextStep", "Next Step / Recommendation", visit.nextStep)}
         ${input("followupDate", "Next Follow-up Date", visit.followupDate, false, "date")}
         ${textarea("summary", "Discussion Summary", visit.summary, "full")}
@@ -2331,7 +2331,7 @@ function openFollowupModal(id = "", customerId = "") {
     ${voidNotice(followup)}
     <form id="followupForm" data-id="${followup.id || ""}">
       <div class="form-grid">
-        ${accountSelect("customerId", "Customer / Distributor", followup.customerId)}
+        ${accountSelect("customerId", "Farm / Distributor", followup.customerId)}
         ${visitSelect("visitId", "Related Visit", followup.visitId, followup.customerId)}
         ${textarea("action", "Action Point", followup.action, "full")}
         ${input("responsible", "Responsible Person", followup.responsible)}
@@ -2362,7 +2362,7 @@ function openSaleModal(id = "", customerId = "") {
     ${voidNotice(sale)}
     <form id="saleForm" data-id="${sale.id || ""}" data-item="${item.id || ""}">
       <div class="form-grid">
-        ${accountSelect("customerId", "Customer / Distributor", sale.customerId)}
+        ${accountSelect("customerId", "Farm / Distributor", sale.customerId)}
         ${visitSelect("visitId", "Visit Reference", sale.visitId, sale.customerId, true)}
         ${input("date", "Sale Date", sale.date, true, "date")}
         ${input("invoice", "Invoice / Receipt Number", sale.invoice)}
@@ -2407,7 +2407,7 @@ function openComplaintModal(id = "", customerId = "") {
     ${voidNotice(complaint)}
     <form id="complaintForm" data-id="${complaint.id || ""}">
       <div class="form-grid">
-        ${accountSelect("customerId", "Customer / Distributor", complaint.customerId)}
+        ${accountSelect("customerId", "Farm / Distributor", complaint.customerId)}
         ${input("date", "Complaint Date", complaint.date, true, "date")}
         ${selectField("category", "Complaint Category", lists.complaintCategories, complaint.category)}
         ${selectField("product", "Product Involved", lists.products, complaint.product)}
@@ -2550,10 +2550,10 @@ function saveCustomer() {
     updatedAt: now
   };
   upsert("customers", record);
-  audit(id, existing ? "Edited customer record" : "Created customer record");
+  audit(id, existing ? "Edited farm record" : "Created farm record");
   saveState();
   closeModal();
-  toast("Customer saved");
+  toast("Farm saved");
   render();
 }
 
@@ -2906,7 +2906,7 @@ function hasAssignedCustomers(userId) {
 function userDeleteBlocker(user) {
   if (user.id === currentUserProfile()?.id) return "You cannot delete your own account";
   if (user.role === "Area Manager" && hasAssignedCanvassers(user.id)) return "Reassign this manager's canvassers before deleting the user";
-  if (user.role === "Canvasser" && hasAssignedCustomers(user.id)) return "Reassign this canvasser's customers/distributors before deleting the user";
+  if (user.role === "Canvasser" && hasAssignedCustomers(user.id)) return "Reassign this canvasser's farms/distributors before deleting the user";
   return "";
 }
 
@@ -3293,7 +3293,7 @@ function exportReportCsv() {
   const accounts = [
     ...scopedCustomers().map((customer) => ({
       id: customer.id,
-      type: "Customer",
+      type: "Farm",
       name: customer.farmName,
       location: `${customer.town}, ${customer.state}`,
       status: customer.category,
@@ -3386,7 +3386,7 @@ function accountSelect(name, labelText, value = "") {
     <label>
       ${labelText}
       <select name="${name}">
-        ${customerOptions ? `<optgroup label="Customers">${customerOptions}</optgroup>` : ""}
+        ${customerOptions ? `<optgroup label="Farms">${customerOptions}</optgroup>` : ""}
         ${distributorOptions ? `<optgroup label="Distributors">${distributorOptions}</optgroup>` : ""}
         ${!customerOptions && !distributorOptions ? `<option value="">No accessible accounts</option>` : ""}
       </select>
@@ -3546,7 +3546,7 @@ function accountName(idOrName) {
 }
 
 function accountTypeLabel(id) {
-  if (state.customers.some((customer) => customer.id === id)) return "Customer";
+  if (state.customers.some((customer) => customer.id === id)) return "Farm";
   if (state.distributors.some((distributor) => distributor.id === id)) return "Distributor";
   return "Account";
 }

@@ -266,7 +266,7 @@ function deleteUser_(userId, actor) {
     readTable_("Customers").some((customer) => customer.ownerId === id)
     || readTable_("Distributors").some((distributor) => distributor.ownerId === id)
   )) {
-    throw new Error("Reassign this canvasser's customers/distributors before deleting the user");
+    throw new Error("Reassign this canvasser's farms/distributors before deleting the user");
   }
 
   writeTable_("Users", users.filter((user) => user.id !== id));
