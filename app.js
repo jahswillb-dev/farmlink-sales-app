@@ -730,7 +730,8 @@ function normalizeBackendState(data) {
     followups: data.followups || [],
     sales: (data.sales || []).map((sale) => ({ ...sale, items: sale.items || [] })),
     complaints: (data.complaints || []).map(normalizeComplaintRecord),
-    auditLogs: data.auditLogs || []
+    auditLogs: data.auditLogs || [],
+    deletedRecords: normalizeDeletedRecords(data.deletedRecords)
   };
 }
 
@@ -738,8 +739,48 @@ function stateForBackend() {
   return {
     ...state,
     visits: (state.visits || []).map((visit) => ({ ...visit, time: formatTime(visit.time) })),
-    complaints: (state.complaints || []).map(complaintForBackend)
+    complaints: (state.complaints || []).map(complaintForBackend),
+    deletedRecords: normalizeDeletedRecords(state.deletedRecords)
   };
+}
+
+function blankDeletedRecords() {
+  return {
+    customers: [],
+    distributors: [],
+    birdDetails: [],
+    visits: [],
+    followups: [],
+    sales: [],
+    complaints: [],
+    auditLogs: []
+  };
+}
+
+function normalizeDeletedRecords(records = {}) {
+  const clean = blankDeletedRecords();
+  Object.keys(clean).forEach((collection) => {
+    clean[collection] = Array.from(new Set((records?.[collection] || []).filter(Boolean).map(String)));
+  });
+  return clean;
+}
+
+function deletedRecordsState() {
+  state.deletedRecords = normalizeDeletedRecords(state.deletedRecords);
+  return state.deletedRecords;
+}
+
+function markRecordDeleted(collection, id) {
+  if (!collection || !id) return;
+  const deleted = deletedRecordsState();
+  if (!deleted[collection]) deleted[collection] = [];
+  const value = String(id);
+  if (!deleted[collection].includes(value)) deleted[collection].push(value);
+}
+
+function clearDeletedRecords() {
+  state.deletedRecords = blankDeletedRecords();
+  saveOfflineCache();
 }
 
 function normalizeComplaintRecord(complaint) {
@@ -807,6 +848,7 @@ async function pushBackendState(options = {}) {
       saveOfflineCache();
       backendSync.suppressSave = false;
     }
+    clearDeletedRecords();
     clearPendingSync();
     backendSync.lastSavedAt = formatTime(new Date());
     if (!options.silent) toast("Saved to Google Sheets");
@@ -2976,6 +3018,7 @@ async function prepareEvidenceFile(file) {
 }
 
 function deleteRecord(collection, id) {
+  markRecordDeleted(collection, id);
   state[collection] = state[collection].filter((item) => item.id !== id);
   saveState();
   toast("Record deleted");
@@ -2991,6 +3034,7 @@ function deleteBusinessRecord(collection, id) {
     return;
   }
 
+  markRecordDeleted(collection, id);
   if (collection === "customers") {
     const relatedSaleIds = new Set(state.sales.filter((sale) => sale.customerId === id).map((sale) => sale.id));
     state.customers = state.customers.filter((item) => item.id !== id);

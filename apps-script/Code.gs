@@ -157,6 +157,8 @@ function saveScoped_(data, user) {
   const all = loadAllRaw_();
   const users = all.users;
   const canDeleteRows = isSalesAdmin_(user);
+  const deletedRecords = canDeleteRows ? normalizeDeletedRecords_(data.deletedRecords) : blankDeletedRecords_();
+  cascadeDeletedRecords_(deletedRecords, all);
   const allowedCanvasserIds = allowedCanvasserIds_(user, users);
   const canAccessCustomer = (customer) => allowedCanvasserIds.includes(customer.ownerId);
   const canAccessDistributor = (distributor) => allowedCanvasserIds.includes(distributor.ownerId);
@@ -172,23 +174,23 @@ function saveScoped_(data, user) {
   const allowedDistributorIds = new Set([...incomingDistributorIds, ...existingAccessibleDistributorIds]);
   const allowedAccountIds = new Set([...allowedCustomerIds, ...allowedDistributorIds]);
 
-  const customers = mergeScopedRows_(all.customers, incomingCustomers, canAccessCustomer, canDeleteRows);
-  const distributors = mergeScopedRows_(all.distributors, incomingDistributors, canAccessDistributor, canDeleteRows);
-  const birdDetails = mergeScopedRows_(all.birdDetails, data.birdDetails || [], (row) => allowedCustomerIds.has(row.customerId), canDeleteRows);
-  const visits = mergeScopedRows_(all.visits, data.visits || [], (row) => allowedAccountIds.has(row.customerId), canDeleteRows);
-  const followups = mergeScopedRows_(all.followups, data.followups || [], (row) => allowedAccountIds.has(row.customerId), canDeleteRows);
+  const customers = mergeScopedRows_(all.customers, incomingCustomers, canAccessCustomer, deletedRecords.customers);
+  const distributors = mergeScopedRows_(all.distributors, incomingDistributors, canAccessDistributor, deletedRecords.distributors);
+  const birdDetails = mergeScopedRows_(all.birdDetails, data.birdDetails || [], (row) => allowedCustomerIds.has(row.customerId), deletedRecords.birdDetails);
+  const visits = mergeScopedRows_(all.visits, data.visits || [], (row) => allowedAccountIds.has(row.customerId), deletedRecords.visits);
+  const followups = mergeScopedRows_(all.followups, data.followups || [], (row) => allowedAccountIds.has(row.customerId), deletedRecords.followups);
   const incomingComplaints = (data.complaints || []).map(processComplaintEvidence_);
-  const complaints = mergeScopedRows_(all.complaints, incomingComplaints, (row) => allowedAccountIds.has(row.customerId), canDeleteRows);
-  const auditLogs = mergeScopedRows_(all.auditLogs, data.auditLogs || [], (row) => allowedAccountIds.has(row.customerId), canDeleteRows);
+  const complaints = mergeScopedRows_(all.complaints, incomingComplaints, (row) => allowedAccountIds.has(row.customerId), deletedRecords.complaints);
+  const auditLogs = mergeScopedRows_(all.auditLogs, data.auditLogs || [], (row) => allowedAccountIds.has(row.customerId), deletedRecords.auditLogs);
 
   const incomingSales = data.sales || [];
-  const sales = mergeScopedRows_(all.sales, incomingSales.map(stripItems_), (sale) => allowedAccountIds.has(sale.customerId), canDeleteRows);
+  const sales = mergeScopedRows_(all.sales, incomingSales.map(stripItems_), (sale) => allowedAccountIds.has(sale.customerId), deletedRecords.sales);
   const writableSaleIds = new Set([
     ...all.sales.filter((sale) => allowedAccountIds.has(sale.customerId)).map((sale) => sale.id),
     ...incomingSales.filter((sale) => allowedAccountIds.has(sale.customerId)).map((sale) => sale.id)
   ]);
   const incomingSaleItems = incomingSales.flatMap((sale) => (sale.items || []).map((item) => ({ ...item, saleId: sale.id })));
-  const saleItems = mergeScopedRows_(all.saleItems, incomingSaleItems, (item) => writableSaleIds.has(item.saleId), canDeleteRows);
+  const saleItems = mergeScopedRows_(all.saleItems, incomingSaleItems, (item) => writableSaleIds.has(item.saleId), deletedRecords.saleItems);
 
   writeTable_("Customers", customers);
   writeTable_("Distributors", distributors);
@@ -322,15 +324,80 @@ function scopedUsers_(user, users) {
   return users.filter((row) => row.id === user.id || row.id === user.managerId);
 }
 
-function mergeScopedRows_(existingRows, incomingRows, canWrite, canDelete) {
+function mergeScopedRows_(existingRows, incomingRows, canWrite, deletedIds) {
+  const deleted = deletedIds || new Set();
   const incomingById = incomingRows.reduce((map, row) => {
-    if (row.id && canWrite(row)) map[row.id] = row;
+    const id = String(row.id || "");
+    if (id && canWrite(row) && !deleted.has(id)) map[id] = row;
     return map;
   }, {});
   const nextRows = existingRows
-    .filter((row) => !canWrite(row) || (!canDelete && !incomingById[row.id]))
+    .filter((row) => {
+      const id = String(row.id || "");
+      return !canWrite(row) || (!deleted.has(id) && !incomingById[id]);
+    })
     .concat(Object.values(incomingById));
   return nextRows;
+}
+
+function blankDeletedRecords_() {
+  return {
+    customers: new Set(),
+    distributors: new Set(),
+    birdDetails: new Set(),
+    visits: new Set(),
+    followups: new Set(),
+    sales: new Set(),
+    saleItems: new Set(),
+    complaints: new Set(),
+    auditLogs: new Set()
+  };
+}
+
+function normalizeDeletedRecords_(records) {
+  const deleted = blankDeletedRecords_();
+  Object.keys(deleted).forEach((collection) => {
+    const values = records && Array.isArray(records[collection]) ? records[collection] : [];
+    values.forEach((id) => addDeletedId_(deleted, collection, id));
+  });
+  return deleted;
+}
+
+function addDeletedId_(deleted, collection, id) {
+  if (!deleted[collection] || id === null || id === undefined || id === "") return;
+  deleted[collection].add(String(id));
+}
+
+function cascadeDeletedRecords_(deleted, all) {
+  const deletedAccountIds = new Set([...deleted.customers, ...deleted.distributors]);
+
+  all.birdDetails
+    .filter((row) => deleted.customers.has(String(row.customerId || "")))
+    .forEach((row) => addDeletedId_(deleted, "birdDetails", row.id));
+
+  all.visits
+    .filter((row) => deletedAccountIds.has(String(row.customerId || "")))
+    .forEach((row) => addDeletedId_(deleted, "visits", row.id));
+
+  all.followups
+    .filter((row) => deletedAccountIds.has(String(row.customerId || "")))
+    .forEach((row) => addDeletedId_(deleted, "followups", row.id));
+
+  all.complaints
+    .filter((row) => deletedAccountIds.has(String(row.customerId || "")))
+    .forEach((row) => addDeletedId_(deleted, "complaints", row.id));
+
+  all.auditLogs
+    .filter((row) => deletedAccountIds.has(String(row.customerId || "")))
+    .forEach((row) => addDeletedId_(deleted, "auditLogs", row.id));
+
+  all.sales
+    .filter((row) => deletedAccountIds.has(String(row.customerId || "")))
+    .forEach((row) => addDeletedId_(deleted, "sales", row.id));
+
+  all.saleItems
+    .filter((row) => deleted.sales.has(String(row.saleId || "")))
+    .forEach((row) => addDeletedId_(deleted, "saleItems", row.id));
 }
 
 function stripItems_(sale) {
@@ -558,12 +625,17 @@ function readTable_(name) {
 function writeTable_(name, rows) {
   const sheet = getOrCreateSheet_(name);
   const headers = TABLES[name];
-  sheet.clearContents();
+  const previousLastRow = sheet.getLastRow();
   sheet.getRange(1, 1, 1, headers.length).setValues([headers]);
   sheet.setFrozenRows(1);
-  if (!rows.length) return;
-  const values = rows.map((row) => headers.map((header) => row[header] == null ? "" : row[header]));
-  sheet.getRange(2, 1, values.length, headers.length).setValues(values);
+  if (rows.length) {
+    const values = rows.map((row) => headers.map((header) => row[header] == null ? "" : row[header]));
+    sheet.getRange(2, 1, values.length, headers.length).setValues(values);
+  }
+  const clearFromRow = rows.length + 2;
+  if (previousLastRow >= clearFromRow) {
+    sheet.getRange(clearFromRow, 1, previousLastRow - clearFromRow + 1, headers.length).clearContent();
+  }
 }
 
 function rowToObject_(headers, row) {
