@@ -23,7 +23,26 @@ const lists = {
   complaintCategories: ["Product Quality", "Delivery Delay", "Wrong Product", "Damaged Bags", "Pricing Issue", "Poor Service", "Short Supply", "Other"],
   complaintStatus: ["Open", "Under Review", "Resolved", "Closed"],
   severity: ["Low", "Medium", "High", "Critical"],
-  products: ["Broiler Starter", "Broiler Grower", "Broiler Finisher", "Layer Mash", "Breeder Mash", "Concentrate", "Turkey Grower"],
+  products: [
+    "TMDK Broiler Super Starter Pellet",
+    "TMDK Broiler Starter Pellet",
+    "TMDK Broiler Finisher Pellet",
+    "TMDK Chick Pellet",
+    "TMDK Grower Mash",
+    "TMDK Grower Pellet",
+    "TMDK Layer 1 Mash",
+    "TMDK Layer 1 Pellet"
+  ],
+  feedTypes: [
+    "Broiler Super Starter Pellet",
+    "Broiler Starter Pellet",
+    "Broiler Finisher Pellet",
+    "Chick Pellet",
+    "Grower Mash",
+    "Grower Pellet",
+    "Layer 1 Mash",
+    "Layer 1 Pellet"
+  ],
   distributorCategories: ["Prospect", "Active", "Dormant", "Suspended"],
   distributorTypes: ["Retail Distributor", "Wholesale Distributor", "Sub-Dealer", "Key Account", "Aggregator"],
   paymentTerms: ["Cash", "Transfer", "Part Payment", "Credit", "Consignment"]
@@ -307,7 +326,7 @@ const demoData = {
       distributorType: "Key Account",
       coverageArea: "Lafenwa, Obantoko, Abeokuta East",
       monthlyVolume: "650 bags",
-      brandsCarried: "LayerBest, Breeder Mash",
+      brandsCarried: "TMDK Layer 1 Mash, TMDK Grower Mash",
       warehouseCapacity: "2,000 bags",
       deliveryFleet: "3 vans",
       paymentTerms: "Part Payment",
@@ -323,11 +342,11 @@ const demoData = {
     }
   ],
   birdDetails: [
-    { id: "b1", customerId: "c1", birdType: "Broiler", breed: "Ross 308", stage: "Finisher", quantity: 2700, pen: "Pen 1", age: "6 weeks", mortality: "2.1%", feed: "Broiler Finisher", notes: "Ready for off-take within 10 days." },
-    { id: "b2", customerId: "c1", birdType: "Broiler", breed: "Arbor Acres", stage: "Grower", quantity: 2000, pen: "Pen 2", age: "4 weeks", mortality: "1.4%", feed: "Broiler Grower", notes: "Uniform weight gain." },
-    { id: "b3", customerId: "c2", birdType: "Layer", breed: "Isa Brown", stage: "Layer", quantity: 7900, pen: "Layer block A", age: "32 weeks", mortality: "0.8%", feed: "Layer Mash", notes: "Egg production stable." },
-    { id: "b4", customerId: "c3", birdType: "Broiler", breed: "", stage: "Starter", quantity: 1200, pen: "Pen A", age: "2 weeks", mortality: "", feed: "FarmPlus Starter", notes: "Asked for starter sample." },
-    { id: "b5", customerId: "c6", birdType: "Layer", breed: "Isa Brown", stage: "Layer", quantity: 5600, pen: "Layer block B", age: "28 weeks", mortality: "1.0%", feed: "Layer Mash", notes: "Strong repeat buyer in Ogun territory." }
+    { id: "b1", customerId: "c1", birdType: "Broiler", breed: "Ross 308", stage: "Finisher", quantity: 2700, pen: "Pen 1", age: "6 weeks", mortality: "2.1%", feed: "TMDK Broiler Finisher Pellet", notes: "Ready for off-take within 10 days." },
+    { id: "b2", customerId: "c1", birdType: "Broiler", breed: "Arbor Acres", stage: "Grower", quantity: 2000, pen: "Pen 2", age: "4 weeks", mortality: "1.4%", feed: "TMDK Grower Pellet", notes: "Uniform weight gain." },
+    { id: "b3", customerId: "c2", birdType: "Layer", breed: "Isa Brown", stage: "Layer", quantity: 7900, pen: "Layer block A", age: "32 weeks", mortality: "0.8%", feed: "TMDK Layer 1 Mash", notes: "Egg production stable." },
+    { id: "b4", customerId: "c3", birdType: "Broiler", breed: "", stage: "Starter", quantity: 1200, pen: "Pen A", age: "2 weeks", mortality: "", feed: "TMDK Broiler Starter Pellet", notes: "Asked for starter sample." },
+    { id: "b5", customerId: "c6", birdType: "Layer", breed: "Isa Brown", stage: "Layer", quantity: 5600, pen: "Layer block B", age: "28 weeks", mortality: "1.0%", feed: "TMDK Layer 1 Mash", notes: "Strong repeat buyer in Ogun territory." }
   ],
   visits: [
     { id: "v1", customerId: "c1", date: "2026-06-02", time: "09:20", gps: "7.4252, 3.8878", type: "Sales Visit", personMet: "Mr. Lawal", purpose: "Confirm reorder", summary: "Discussed finisher feed reorder and delivery timing.", observation: "Birds active, feed stock low.", currentFeed: "PrimeGrow", competitor: "No active competitor visit this week.", interest: "High", nextStep: "Send invoice and book delivery", followupDate: "2026-06-03", notes: "Farm requested early truck dispatch.", createdBy: "Ada Okafor", updatedAt: "2026-06-02" },
@@ -346,18 +365,18 @@ const demoData = {
     { id: "f6", customerId: "d1", visitId: "v6", action: "Share distributor price band and June delivery calendar", responsible: "Ada Okafor", priority: "High", dueDate: "2026-06-06", status: "Pending", completionNotes: "", dateCompleted: "" }
   ],
   sales: [
-    { id: "s1", customerId: "c1", visitId: "v1", date: "2026-06-02", paymentStatus: "Part Payment", deliveryStatus: "Pending", invoice: "INV-2401", notes: "Deliver tomorrow morning.", createdBy: "Ada Okafor", items: [{ id: "si1", product: "Broiler Finisher", category: "Feed", feedType: "Finisher", quantity: 35, unit: "Bags", unitPrice: 18500 }] },
-    { id: "s2", customerId: "c2", visitId: "v2", date: "2026-05-29", paymentStatus: "Paid", deliveryStatus: "Delivered", invoice: "INV-2385", notes: "Repeat order likely next week.", createdBy: "Tunde Balogun", items: [{ id: "si2", product: "Layer Mash", category: "Feed", feedType: "Layer Mash", quantity: 22, unit: "Bags", unitPrice: 17600 }] },
-    { id: "s3", customerId: "c5", visitId: "", date: "2026-06-01", paymentStatus: "Credit", deliveryStatus: "Delivered", invoice: "INV-2400", notes: "First purchase after onboarding.", createdBy: "Ada Okafor", items: [{ id: "si3", product: "Breeder Mash", category: "Feed", feedType: "Breeder", quantity: 18, unit: "Bags", unitPrice: 19800 }] },
-    { id: "s4", customerId: "c6", visitId: "v5", date: "2026-06-02", paymentStatus: "Paid", deliveryStatus: "Pending", invoice: "INV-2402", notes: "Outside current area manager scope.", createdBy: "Bola Nwosu", items: [{ id: "si4", product: "Layer Mash", category: "Feed", feedType: "Layer Mash", quantity: 30, unit: "Bags", unitPrice: 17700 }] },
-    { id: "s5", customerId: "d1", visitId: "v6", date: "2026-06-03", paymentStatus: "Credit", deliveryStatus: "Scheduled", invoice: "INV-2403", notes: "Bulk distributor reorder for retail route supply.", createdBy: "Ada Okafor", items: [{ id: "si5", product: "Layer Mash", category: "Feed", feedType: "Layer Mash", quantity: 120, unit: "Bags", unitPrice: 17400 }] }
+    { id: "s1", customerId: "c1", visitId: "v1", date: "2026-06-02", paymentStatus: "Part Payment", deliveryStatus: "Pending", invoice: "INV-2401", notes: "Deliver tomorrow morning.", createdBy: "Ada Okafor", items: [{ id: "si1", product: "TMDK Broiler Finisher Pellet", category: "Feed", feedType: "Broiler Finisher Pellet", quantity: 35, unit: "Bags", unitPrice: 18500 }] },
+    { id: "s2", customerId: "c2", visitId: "v2", date: "2026-05-29", paymentStatus: "Paid", deliveryStatus: "Delivered", invoice: "INV-2385", notes: "Repeat order likely next week.", createdBy: "Tunde Balogun", items: [{ id: "si2", product: "TMDK Layer 1 Mash", category: "Feed", feedType: "Layer 1 Mash", quantity: 22, unit: "Bags", unitPrice: 17600 }] },
+    { id: "s3", customerId: "c5", visitId: "", date: "2026-06-01", paymentStatus: "Credit", deliveryStatus: "Delivered", invoice: "INV-2400", notes: "First purchase after onboarding.", createdBy: "Ada Okafor", items: [{ id: "si3", product: "TMDK Grower Mash", category: "Feed", feedType: "Grower Mash", quantity: 18, unit: "Bags", unitPrice: 19800 }] },
+    { id: "s4", customerId: "c6", visitId: "v5", date: "2026-06-02", paymentStatus: "Paid", deliveryStatus: "Pending", invoice: "INV-2402", notes: "Outside current area manager scope.", createdBy: "Bola Nwosu", items: [{ id: "si4", product: "TMDK Layer 1 Mash", category: "Feed", feedType: "Layer 1 Mash", quantity: 30, unit: "Bags", unitPrice: 17700 }] },
+    { id: "s5", customerId: "d1", visitId: "v6", date: "2026-06-03", paymentStatus: "Credit", deliveryStatus: "Scheduled", invoice: "INV-2403", notes: "Bulk distributor reorder for retail route supply.", createdBy: "Ada Okafor", items: [{ id: "si5", product: "TMDK Layer 1 Pellet", category: "Feed", feedType: "Layer 1 Pellet", quantity: 120, unit: "Bags", unitPrice: 17400 }] }
   ],
   complaints: [
-    { id: "cp1", customerId: "c4", date: "2026-05-21", category: "Damaged Bags", product: "Turkey Grower", batch: "TG-0526-04", quantity: "7 bags", description: "Outer bags torn during delivery.", severity: "High", actionTaken: "Photos taken and batch noted.", assignedTo: "QA Desk", status: "Under Review", resolutionNotes: "", dateResolved: "" },
-    { id: "cp2", customerId: "c2", date: "2026-05-28", category: "Pricing Issue", product: "Layer Mash", batch: "", quantity: "", description: "Farm says competitor price is lower.", severity: "Medium", actionTaken: "Escalated to manager for discount review.", assignedTo: "Miriam Yusuf", status: "Open", resolutionNotes: "", dateResolved: "" },
-    { id: "cp3", customerId: "c1", date: "2026-05-18", category: "Delivery Delay", product: "Broiler Grower", batch: "", quantity: "20 bags", description: "Truck arrived five hours late.", severity: "Low", actionTaken: "Apology issued and logistics informed.", assignedTo: "Dispatch Lead", status: "Resolved", resolutionNotes: "Dispatch window adjusted for next order.", dateResolved: "2026-05-19" },
-    { id: "cp4", customerId: "c6", date: "2026-05-31", category: "Short Supply", product: "Layer Mash", batch: "LM-0526-11", quantity: "2 bags", description: "Farm reported two bags short on delivery note.", severity: "Medium", actionTaken: "Dispatch asked to reconcile trip sheet.", assignedTo: "Sales Admin", status: "Open", resolutionNotes: "", dateResolved: "" },
-    { id: "cp5", customerId: "d1", date: "2026-06-01", category: "Delivery Delay", product: "Layer Mash", batch: "LM-0601-02", quantity: "80 bags", description: "Distributor reported late arrival that affected retail resupply.", severity: "Medium", actionTaken: "Logged route delay and notified logistics.", assignedTo: "Dispatch Lead", status: "Open", resolutionNotes: "", dateResolved: "" }
+    { id: "cp1", customerId: "c4", date: "2026-05-21", category: "Damaged Bags", product: "TMDK Grower Pellet", batch: "TG-0526-04", quantity: "7 bags", description: "Outer bags torn during delivery.", severity: "High", actionTaken: "Photos taken and batch noted.", assignedTo: "QA Desk", status: "Under Review", resolutionNotes: "", dateResolved: "" },
+    { id: "cp2", customerId: "c2", date: "2026-05-28", category: "Pricing Issue", product: "TMDK Layer 1 Mash", batch: "", quantity: "", description: "Farm says competitor price is lower.", severity: "Medium", actionTaken: "Escalated to manager for discount review.", assignedTo: "Miriam Yusuf", status: "Open", resolutionNotes: "", dateResolved: "" },
+    { id: "cp3", customerId: "c1", date: "2026-05-18", category: "Delivery Delay", product: "TMDK Grower Pellet", batch: "", quantity: "20 bags", description: "Truck arrived five hours late.", severity: "Low", actionTaken: "Apology issued and logistics informed.", assignedTo: "Dispatch Lead", status: "Resolved", resolutionNotes: "Dispatch window adjusted for next order.", dateResolved: "2026-05-19" },
+    { id: "cp4", customerId: "c6", date: "2026-05-31", category: "Short Supply", product: "TMDK Layer 1 Mash", batch: "LM-0526-11", quantity: "2 bags", description: "Farm reported two bags short on delivery note.", severity: "Medium", actionTaken: "Dispatch asked to reconcile trip sheet.", assignedTo: "Sales Admin", status: "Open", resolutionNotes: "", dateResolved: "" },
+    { id: "cp5", customerId: "d1", date: "2026-06-01", category: "Delivery Delay", product: "TMDK Layer 1 Pellet", batch: "LM-0601-02", quantity: "80 bags", description: "Distributor reported late arrival that affected retail resupply.", severity: "Medium", actionTaken: "Logged route delay and notified logistics.", assignedTo: "Dispatch Lead", status: "Open", resolutionNotes: "", dateResolved: "" }
   ],
   auditLogs: []
 };
@@ -2048,7 +2067,7 @@ function customerForm(customer) {
         ${input("contact", "Contact Person Name", customer.contact, true)}
         ${input("phone", "Phone Number", customer.phone, true)}
         ${input("altPhone", "Alternative Phone Number", customer.altPhone)}
-        ${input("email", "Email Address", customer.email, false, "email")}
+        ${input("email", "Email Address (Optional)", customer.email, false, "email")}
         ${input("address", "Farm Address", customer.address, true)}
         ${input("state", "State / Region", customer.state)}
         ${input("lga", "Local Government / District", customer.lga)}
@@ -2198,7 +2217,7 @@ function distributorForm(distributor) {
         ${input("contact", "Contact Person Name", distributor.contact, true)}
         ${input("phone", "Phone Number", distributor.phone, true)}
         ${input("altPhone", "Alternative Phone Number", distributor.altPhone)}
-        ${input("email", "Email Address", distributor.email, false, "email")}
+        ${input("email", "Email Address (Optional)", distributor.email, false, "email")}
         ${input("address", "Business / Warehouse Address", distributor.address, true)}
         ${input("state", "State / Region", distributor.state)}
         ${input("lga", "Local Government / District", distributor.lga)}
@@ -2373,7 +2392,7 @@ function openSaleModal(id = "", customerId = "") {
       <div class="form-grid three">
         ${selectField("product", "Product Name", lists.products, item.product)}
         ${input("category", "Product Category", item.category || "Feed")}
-        ${selectField("feedType", "Feed Type", ["Starter", "Grower", "Finisher", "Layer Mash", "Broiler Feed", "Concentrate", "Breeder"], item.feedType)}
+        ${selectField("feedType", "Feed Type", lists.feedTypes, item.feedType)}
         ${input("quantity", "Quantity Sold", item.quantity, true, "number", "data-autototal")}
         ${selectField("unit", "Unit of Measurement", ["Bags", "Kg", "Tons"], item.unit)}
         ${input("unitPrice", "Unit Price (₦)", item.unitPrice, true, "number", "data-autototal")}
@@ -3778,11 +3797,11 @@ function blankSale(customerId = "") {
 }
 
 function blankSaleItem() {
-  return { id: "", product: "Broiler Starter", category: "Feed", feedType: "Starter", quantity: "", unit: "Bags", unitPrice: "" };
+  return { id: "", product: "TMDK Broiler Super Starter Pellet", category: "Feed", feedType: "Broiler Super Starter Pellet", quantity: "", unit: "Bags", unitPrice: "" };
 }
 
 function blankComplaint(customerId = "") {
-  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "Broiler Starter", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "", evidenceName: "", evidenceData: "[]", evidenceItems: [] };
+  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "TMDK Broiler Super Starter Pellet", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "", evidenceName: "", evidenceData: "[]", evidenceItems: [] };
 }
 
 function makeId(prefix, collection) {
