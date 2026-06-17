@@ -1498,7 +1498,7 @@ function renderCustomers() {
     </section>
 
     <section class="toolbar">
-      <input data-customer-filter type="search" placeholder="Name or phone" value="${escapeAttr(ui.customerFilter)}" />
+      <input data-customer-filter type="search" placeholder="Name, phone, or user" value="${escapeAttr(ui.customerFilter)}" />
       ${select("locationFilter", unique(data.customers.map((c) => c.town)), "", "All locations", "data-customer-filter-select")}
       ${select("birdFilter", lists.farmTypes, "", "All bird types", "data-customer-filter-select")}
       ${select("statusFilter", lists.categories, "", "All statuses", "data-customer-filter-select")}
@@ -1525,7 +1525,7 @@ function renderDistributors() {
     </section>
 
     <section class="toolbar">
-      <input data-distributor-filter type="search" placeholder="Business, contact, phone, or coverage" value="${escapeAttr(ui.distributorFilter)}" />
+      <input data-distributor-filter type="search" placeholder="Business, contact, phone, coverage, or user" value="${escapeAttr(ui.distributorFilter)}" />
       ${select("distributorLocationFilter", unique(data.distributors.map((d) => d.town)), "", "All locations", "data-distributor-filter-select")}
       ${select("distributorTypeFilter", lists.distributorTypes, "", "All types", "data-distributor-filter-select")}
       ${select("distributorStatusFilter", lists.distributorCategories, "", "All statuses", "data-distributor-filter-select")}
@@ -1554,7 +1554,7 @@ function renderVisits() {
 }
 
 function renderFollowups() {
-  const rows = filterByGlobal(scopedFollowups(), (followup) => `${accountName(followup.customerId)} ${followup.action} ${followup.responsible} ${followup.status}`);
+  const rows = filterByGlobal(scopedFollowups(), (followup) => `${accountName(followup.customerId)} ${followup.action} ${recordCreator(followup, followup.responsible)} ${followup.responsible} ${followup.status}`);
   return `
     <section class="page-head">
       <div>
@@ -1586,7 +1586,7 @@ function renderSales() {
 }
 
 function renderComplaints() {
-  const rows = filterByGlobal(scopedComplaints(), (complaint) => `${accountName(complaint.customerId)} ${complaint.category} ${complaint.product} ${complaint.status}`);
+  const rows = filterByGlobal(scopedComplaints(), (complaint) => `${accountName(complaint.customerId)} ${complaint.category} ${complaint.product} ${recordCreator(complaint, complaint.assignedTo)} ${complaint.status}`);
   return `
     <section class="page-head">
       <div>
@@ -1695,11 +1695,12 @@ function customerTable(rows) {
   if (!rows.length) return emptyState("users", "No farms match the current filters.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Farm", "Location / Birds", "Activity"])}
+      ${lineItemHeader(["Farm", "Entered By", "Location / Birds", "Activity"])}
       ${rows.map((customer) => {
         const lastVisit = lastVisitDate(customer.id) || "No visit";
         const openComplaints = state.complaints.filter((complaint) => complaint.customerId === customer.id && !["Closed", "Resolved"].includes(complaint.status)).length;
         const pendingFollowups = state.followups.filter((followup) => followup.customerId === customer.id && followup.status !== "Completed").length;
+        const ownerName = userName(customerOwnerId(customer));
         return `
           <button type="button" class="customer-row" data-action="open-customer" data-id="${customer.id}" aria-label="Open ${escapeAttr(customer.farmName)}">
             <span class="customer-main">
@@ -1709,6 +1710,7 @@ function customerTable(rows) {
               </span>
               <span class="customer-subline truncate">${customer.contact} - ${customer.phone}</span>
             </span>
+            ${userColumn(recordCreator(customer, ownerName), ownerName && ownerName !== recordCreator(customer, ownerName) ? `Assigned: ${ownerName}` : "")}
             <span class="customer-meta">
               <span class="truncate"><i data-lucide="map-pin"></i>${customer.town || "No town"}, ${customer.state || "No state"} - ${customer.birdType} - ${formatNumber(customer.capacity)} birds</span>
             </span>
@@ -1731,11 +1733,12 @@ function distributorTable(rows) {
   if (!rows.length) return emptyState("store", "No distributors match the current filters.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Distributor", "Coverage / Type", "Activity"])}
+      ${lineItemHeader(["Distributor", "Entered By", "Coverage / Type", "Activity"])}
       ${rows.map((distributor) => {
         const lastVisit = lastVisitDate(distributor.id) || "No visit";
         const openComplaints = state.complaints.filter((complaint) => complaint.customerId === distributor.id && !["Closed", "Resolved"].includes(complaint.status)).length;
         const pendingFollowups = state.followups.filter((followup) => followup.customerId === distributor.id && followup.status !== "Completed").length;
+        const ownerName = userName(distributorOwnerId(distributor));
         return `
           <button type="button" class="customer-row" data-action="open-distributor" data-id="${distributor.id}" aria-label="Open ${escapeAttr(distributor.businessName)}">
             <span class="customer-main">
@@ -1745,6 +1748,7 @@ function distributorTable(rows) {
               </span>
               <span class="customer-subline truncate">${distributor.contact} - ${distributor.phone}</span>
             </span>
+            ${userColumn(recordCreator(distributor, ownerName), ownerName && ownerName !== recordCreator(distributor, ownerName) ? `Assigned: ${ownerName}` : "")}
             <span class="customer-meta">
               <span class="truncate"><i data-lucide="map-pin"></i>${distributor.town || "No town"}, ${distributor.state || "No state"} - ${distributor.distributorType || "Distributor"} - ${distributor.monthlyVolume || "No volume"}</span>
             </span>
@@ -1767,7 +1771,7 @@ function compactVisitTable(rows) {
   if (!rows.length) return emptyState("clipboard-list", "No visit records yet.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Account / Visit", "Date / Next Step", "Follow-up"])}
+      ${lineItemHeader(["Account / Visit", "Entered By", "Date / Next Step", "Follow-up"])}
       ${rows.map((visit) => `
         <button type="button" class="customer-row" data-action="open-visit" data-id="${visit.id}" data-customer="${visit.customerId}" aria-label="Open visit for ${escapeAttr(accountName(visit.customerId))}">
           <span class="customer-main">
@@ -1777,6 +1781,7 @@ function compactVisitTable(rows) {
             </span>
             <span class="customer-subline truncate">${visit.personMet || "Person not recorded"} - ${visit.summary || visit.purpose || "No summary"}</span>
           </span>
+          ${userColumn(recordCreator(visit))}
           <span class="customer-meta">
             <span class="truncate"><i data-lucide="calendar-days"></i>${visit.date} ${formatTime(visit.time) || ""} - ${visit.nextStep || "No next action"}</span>
           </span>
@@ -1795,7 +1800,7 @@ function compactFollowupTable(rows) {
   if (!rows.length) return emptyState("calendar-check", "No action points yet.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Account / Action", "Due / Owner", "Status"])}
+      ${lineItemHeader(["Account / Action", "Entered By", "Due / Owner", "Status"])}
       ${rows.map((followup) => `
         <button type="button" class="customer-row" data-action="open-followup" data-id="${followup.id}" data-customer="${followup.customerId}" aria-label="Open follow-up for ${escapeAttr(accountName(followup.customerId))}">
           <span class="customer-main">
@@ -1805,6 +1810,7 @@ function compactFollowupTable(rows) {
             </span>
             <span class="customer-subline truncate">${followup.action || "No action point"}</span>
           </span>
+          ${userColumn(recordCreator(followup, followup.responsible), followup.responsible && followup.responsible !== recordCreator(followup, followup.responsible) ? `Owner: ${followup.responsible}` : "")}
           <span class="customer-meta">
             <span class="truncate"><i data-lucide="calendar-clock"></i>Due ${followup.dueDate} - ${followup.responsible || "Unassigned"}</span>
           </span>
@@ -1823,7 +1829,7 @@ function compactSalesTable(rows) {
   if (!rows.length) return emptyState("receipt", "No sales records yet.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Account / Items", "Value / Invoice", "Delivery"])}
+      ${lineItemHeader(["Account / Items", "Entered By", "Value / Invoice", "Delivery"])}
       ${rows.map((sale) => {
         const products = sale.items.map((item) => item.product).join(", ");
         const quantity = sale.items.reduce((sum, item) => sum + Number(item.quantity || 0), 0);
@@ -1836,6 +1842,7 @@ function compactSalesTable(rows) {
               </span>
               <span class="customer-subline truncate">${products || "No products"} - ${formatNumber(quantity)} ${quantity === 1 ? "unit" : "units"}</span>
             </span>
+            ${userColumn(recordCreator(sale))}
             <span class="customer-meta">
               <span class="truncate"><i data-lucide="receipt"></i>${sale.date} - ${money(saleTotal(sale))}${sale.invoice ? ` - ${sale.invoice}` : ""}</span>
             </span>
@@ -1855,7 +1862,7 @@ function compactComplaintTable(rows) {
   if (!rows.length) return emptyState("message-square-warning", "No complaints recorded.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["Account / Complaint", "Date / Details", "Status"])}
+      ${lineItemHeader(["Account / Complaint", "Entered By", "Date / Details", "Status"])}
       ${rows.map((complaint) => `
         <button type="button" class="customer-row" data-action="open-complaint" data-id="${complaint.id}" data-customer="${complaint.customerId}" aria-label="Open complaint for ${escapeAttr(accountName(complaint.customerId))}">
           <span class="customer-main">
@@ -1865,6 +1872,7 @@ function compactComplaintTable(rows) {
             </span>
             <span class="customer-subline truncate">${complaint.category} - ${complaint.product || "No product"}</span>
           </span>
+          ${userColumn(recordCreator(complaint, complaint.assignedTo), complaint.assignedTo && complaint.assignedTo !== recordCreator(complaint, complaint.assignedTo) ? `Assigned: ${complaint.assignedTo}` : "")}
           <span class="customer-meta">
             <span class="truncate"><i data-lucide="message-square-warning"></i>${complaint.date} - ${complaint.description || "No description"}</span>
           </span>
@@ -1886,7 +1894,7 @@ function userTable(rows) {
   if (!rows.length) return emptyState("users", "No users match the current filters.");
   return `
     <div class="customer-list">
-      ${lineItemHeader(["User / Account", "Role / Region", "Status"])}
+      ${lineItemHeader(["User / Account", "Manager", "Role / Region", "Status"])}
       ${rows.map((user) => `
         <button type="button" class="customer-row" data-action="open-user" data-id="${user.id}" aria-label="Open user ${escapeAttr(user.name)}">
           <span class="customer-main">
@@ -1896,6 +1904,7 @@ function userTable(rows) {
             </span>
             <span class="customer-subline truncate">${user.username || "No username"} - ${user.email || "No email"}</span>
           </span>
+          ${userColumn(user.managerId ? userName(user.managerId) : "None", user.id)}
           <span class="customer-meta">
             <span class="truncate"><i data-lucide="map-pin"></i>${user.territory || "No region"}${user.managerId ? ` - Manager: ${userName(user.managerId)}` : ""}</span>
           </span>
@@ -1917,6 +1926,19 @@ function lineItemHeader(labels) {
       <span></span>
     </div>
   `;
+}
+
+function userColumn(name, note = "") {
+  return `
+    <span class="customer-user">
+      <strong class="truncate">${escapeHtml(name || "Unassigned")}</strong>
+      ${note ? `<small class="truncate">${escapeHtml(note)}</small>` : ""}
+    </span>
+  `;
+}
+
+function recordCreator(record, fallback = "") {
+  return record?.createdBy || record?.updatedBy || fallback || "Unassigned";
 }
 
 function isVoided(record) {
@@ -2689,7 +2711,7 @@ function saveFollowup() {
   const values = serializeForm(form);
   const id = form.dataset.id || makeId("f", state.followups);
   const existing = state.followups.find((item) => item.id === id);
-  upsert("followups", { ...blankFollowup(values.customerId), ...existing, ...values, id });
+  upsert("followups", { ...blankFollowup(values.customerId), ...existing, ...values, id, createdBy: existing?.createdBy || currentUserName() });
   audit(values.customerId, existing ? "Edited follow-up" : "Created follow-up");
   saveState();
   closeModal();
@@ -2750,7 +2772,7 @@ async function saveComplaint() {
   if (!evidence) return;
   delete values.evidenceFiles;
   delete values.evidenceRemoved;
-  upsert("complaints", { ...blankComplaint(values.customerId), ...existing, ...values, ...evidence, id });
+  upsert("complaints", { ...blankComplaint(values.customerId), ...existing, ...values, ...evidence, id, createdBy: existing?.createdBy || currentUserName() });
   audit(values.customerId, existing ? "Edited complaint status/details" : "Recorded complaint");
   saveState();
   closeModal();
@@ -3288,9 +3310,9 @@ function getFilteredCustomers() {
   const bird = document.getElementById("birdFilter")?.value || "";
   const status = document.getElementById("statusFilter")?.value || "";
   const lastVisitAfter = document.getElementById("lastVisitFilter")?.value || "";
-  return filterByGlobal(scopedCustomers(), (customer) => `${customer.farmName} ${customer.contact} ${customer.phone} ${customer.town} ${customer.farmType}`)
+  return filterByGlobal(scopedCustomers(), (customer) => `${customer.farmName} ${customer.contact} ${customer.phone} ${customer.town} ${customer.farmType} ${recordCreator(customer, userName(customerOwnerId(customer)))}`)
     .filter((customer) => {
-      const text = `${customer.farmName} ${customer.contact} ${customer.phone}`.toLowerCase();
+      const text = `${customer.farmName} ${customer.contact} ${customer.phone} ${recordCreator(customer, userName(customerOwnerId(customer)))}`.toLowerCase();
       const local = !ui.customerFilter || text.includes(ui.customerFilter);
       const locationMatch = !location || customer.town === location;
       const birdMatch = !bird || customer.farmType === bird;
@@ -3305,9 +3327,9 @@ function getFilteredDistributors() {
   const location = document.getElementById("distributorLocationFilter")?.value || "";
   const type = document.getElementById("distributorTypeFilter")?.value || "";
   const status = document.getElementById("distributorStatusFilter")?.value || "";
-  return filterByGlobal(scopedDistributors(), (distributor) => `${distributor.businessName} ${distributor.contact} ${distributor.phone} ${distributor.town} ${distributor.distributorType} ${distributor.coverageArea}`)
+  return filterByGlobal(scopedDistributors(), (distributor) => `${distributor.businessName} ${distributor.contact} ${distributor.phone} ${distributor.town} ${distributor.distributorType} ${distributor.coverageArea} ${recordCreator(distributor, userName(distributorOwnerId(distributor)))}`)
     .filter((distributor) => {
-      const text = `${distributor.businessName} ${distributor.contact} ${distributor.phone} ${distributor.coverageArea}`.toLowerCase();
+      const text = `${distributor.businessName} ${distributor.contact} ${distributor.phone} ${distributor.coverageArea} ${recordCreator(distributor, userName(distributorOwnerId(distributor)))}`.toLowerCase();
       const local = !ui.distributorFilter || text.includes(ui.distributorFilter);
       const locationMatch = !location || distributor.town === location;
       const typeMatch = !type || distributor.distributorType === type;
@@ -3833,7 +3855,7 @@ function blankVisit(customerId = "") {
 }
 
 function blankFollowup(customerId = "") {
-  return { id: "", customerId: customerId || defaultCustomerId(), visitId: "", action: "", responsible: currentUserName(), priority: "Medium", dueDate: today(), status: "Pending", completionNotes: "", dateCompleted: "", voided: "", voidedBy: "", voidedAt: "" };
+  return { id: "", customerId: customerId || defaultCustomerId(), visitId: "", action: "", responsible: currentUserName(), priority: "Medium", dueDate: today(), status: "Pending", completionNotes: "", dateCompleted: "", voided: "", voidedBy: "", voidedAt: "", createdBy: currentUserName() };
 }
 
 function blankSale(customerId = "") {
@@ -3845,7 +3867,7 @@ function blankSaleItem() {
 }
 
 function blankComplaint(customerId = "") {
-  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "TMDK Broiler Super Starter Pellet", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "", evidenceName: "", evidenceData: "[]", evidenceItems: [] };
+  return { id: "", customerId: customerId || defaultCustomerId(), date: today(), category: "Product Quality", product: "TMDK Broiler Super Starter Pellet", batch: "", quantity: "", description: "", severity: "Medium", actionTaken: "", assignedTo: currentUserName(), status: "Open", resolutionNotes: "", dateResolved: "", voided: "", voidedBy: "", voidedAt: "", evidenceName: "", evidenceData: "[]", evidenceItems: [], createdBy: currentUserName() };
 }
 
 function makeId(prefix, collection) {

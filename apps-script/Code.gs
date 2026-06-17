@@ -10,10 +10,10 @@ const TABLES = {
   Distributors: ["id", "businessName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "distributorType", "coverageArea", "monthlyVolume", "brandsCarried", "warehouseCapacity", "deliveryFleet", "paymentTerms", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
   BirdDetails: ["id", "customerId", "birdType", "breed", "stage", "quantity", "pen", "age", "mortality", "feed", "notes"],
   Visits: ["id", "customerId", "date", "time", "gps", "type", "personMet", "purpose", "summary", "observation", "currentFeed", "competitor", "interest", "nextStep", "followupDate", "notes", "createdBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
-  Followups: ["id", "customerId", "visitId", "action", "responsible", "priority", "dueDate", "status", "completionNotes", "dateCompleted", "voided", "voidedBy", "voidedAt"],
+  Followups: ["id", "customerId", "visitId", "action", "responsible", "priority", "dueDate", "status", "completionNotes", "dateCompleted", "voided", "voidedBy", "voidedAt", "createdBy"],
   Sales: ["id", "customerId", "visitId", "date", "paymentStatus", "deliveryStatus", "invoice", "notes", "createdBy", "voided", "voidedBy", "voidedAt"],
   SaleItems: ["id", "saleId", "product", "category", "feedType", "quantity", "unit", "unitPrice"],
-  Complaints: ["id", "customerId", "date", "category", "product", "batch", "quantity", "description", "severity", "actionTaken", "assignedTo", "status", "resolutionNotes", "dateResolved", "voided", "voidedBy", "voidedAt", "evidenceName", "evidenceData"],
+  Complaints: ["id", "customerId", "date", "category", "product", "batch", "quantity", "description", "severity", "actionTaken", "assignedTo", "status", "resolutionNotes", "dateResolved", "voided", "voidedBy", "voidedAt", "evidenceName", "evidenceData", "createdBy"],
   AuditLogs: ["id", "customerId", "action", "user", "date"]
 };
 
