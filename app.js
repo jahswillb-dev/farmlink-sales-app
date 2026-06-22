@@ -3871,11 +3871,11 @@ function blankComplaint(customerId = "") {
 }
 
 function makeId(prefix, collection) {
-  const numbers = collection
-    .map((item) => String(item.id || "").replace(prefix, ""))
-    .map((item) => Number(item))
-    .filter(Number.isFinite);
-  return `${prefix}${Math.max(0, ...numbers) + 1}`;
+  const safePrefix = String(prefix || "id").replace(/[^a-z0-9_-]/gi, "").toLowerCase() || "id";
+  const randomPart = window.crypto?.randomUUID
+    ? window.crypto.randomUUID()
+    : `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`;
+  return `${safePrefix}-${randomPart}`;
 }
 
 function makeEvidenceId() {

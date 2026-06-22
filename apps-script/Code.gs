@@ -300,6 +300,177 @@ function loadAllRaw_() {
   };
 }
 
+function duplicateIdReport() {
+  const all = loadAllRaw_();
+  const report = {
+    Customers: duplicateIds_(all.customers),
+    Distributors: duplicateIds_(all.distributors),
+    BirdDetails: duplicateIds_(all.birdDetails),
+    Visits: duplicateIds_(all.visits),
+    Followups: duplicateIds_(all.followups),
+    Sales: duplicateIds_(all.sales),
+    SaleItems: duplicateIds_(all.saleItems),
+    Complaints: duplicateIds_(all.complaints),
+    AuditLogs: duplicateIds_(all.auditLogs)
+  };
+  Logger.log(JSON.stringify(report, null, 2));
+  return report;
+}
+
+function repairDuplicateRecordIds() {
+  const lock = LockService.getScriptLock();
+  lock.waitLock(30000);
+  try {
+    const all = loadAllRaw_();
+    const usedIds = collectAllRecordIds_(all);
+    const result = { updatedIds: [], remappedLinks: [] };
+
+    const customerChanges = repairDuplicateIdsInRows_(all.customers, "c", usedIds, "Customers", result);
+    const distributorChanges = repairDuplicateIdsInRows_(all.distributors, "d", usedIds, "Distributors", result);
+    const accountChanges = customerChanges.concat(distributorChanges);
+
+    remapLinkedIds_(all.birdDetails, "customerId", accountChanges, result, "BirdDetails");
+    remapLinkedIds_(all.visits, "customerId", accountChanges, result, "Visits");
+    remapLinkedIds_(all.followups, "customerId", accountChanges, result, "Followups");
+    remapLinkedIds_(all.sales, "customerId", accountChanges, result, "Sales");
+    remapLinkedIds_(all.complaints, "customerId", accountChanges, result, "Complaints");
+    remapLinkedIds_(all.auditLogs, "customerId", accountChanges, result, "AuditLogs");
+
+    const visitChanges = repairDuplicateIdsInRows_(all.visits, "v", usedIds, "Visits", result);
+    remapLinkedIds_(all.followups, "visitId", visitChanges, result, "Followups");
+    remapLinkedIds_(all.sales, "visitId", visitChanges, result, "Sales");
+
+    repairDuplicateIdsInRows_(all.birdDetails, "b", usedIds, "BirdDetails", result);
+    repairDuplicateIdsInRows_(all.followups, "f", usedIds, "Followups", result);
+    const saleChanges = repairDuplicateIdsInRows_(all.sales, "s", usedIds, "Sales", result);
+    remapLinkedIds_(all.saleItems, "saleId", saleChanges, result, "SaleItems");
+    repairDuplicateIdsInRows_(all.saleItems, "si", usedIds, "SaleItems", result);
+    repairDuplicateIdsInRows_(all.complaints, "cp", usedIds, "Complaints", result);
+    repairDuplicateIdsInRows_(all.auditLogs, "a", usedIds, "AuditLogs", result);
+
+    writeTable_("Customers", all.customers);
+    writeTable_("Distributors", all.distributors);
+    writeTable_("BirdDetails", all.birdDetails);
+    writeTable_("Visits", all.visits);
+    writeTable_("Followups", all.followups);
+    writeTable_("Sales", all.sales);
+    writeTable_("SaleItems", all.saleItems);
+    writeTable_("Complaints", all.complaints);
+    writeTable_("AuditLogs", all.auditLogs);
+
+    Logger.log(JSON.stringify(result, null, 2));
+    return result;
+  } finally {
+    lock.releaseLock();
+  }
+}
+
+function duplicateIds_(rows) {
+  const counts = {};
+  rows.forEach((row) => {
+    const id = String(row.id || "").trim();
+    if (!id) return;
+    counts[id] = (counts[id] || 0) + 1;
+  });
+  return Object.keys(counts)
+    .filter((id) => counts[id] > 1)
+    .map((id) => ({ id, count: counts[id] }));
+}
+
+function collectAllRecordIds_(all) {
+  const ids = new Set();
+  [
+    all.customers,
+    all.distributors,
+    all.birdDetails,
+    all.visits,
+    all.followups,
+    all.sales,
+    all.saleItems,
+    all.complaints,
+    all.auditLogs
+  ].forEach((rows) => rows.forEach((row) => {
+    const id = String(row.id || "").trim();
+    if (id) ids.add(id);
+  }));
+  return ids;
+}
+
+function repairDuplicateIdsInRows_(rows, prefix, usedIds, tableName, result) {
+  const seen = new Set();
+  const changes = [];
+  rows.forEach((row, index) => {
+    const oldId = String(row.id || "").trim();
+    if (oldId && !seen.has(oldId)) {
+      seen.add(oldId);
+      return;
+    }
+    const newId = uniqueRecordId_(prefix, usedIds);
+    seen.add(newId);
+    row.id = newId;
+    const change = {
+      tableName,
+      rowIndex: index + 2,
+      oldId,
+      newId,
+      ownerId: String(row.ownerId || ""),
+      userKey: recordUserKey_(row)
+    };
+    changes.push(change);
+    result.updatedIds.push(change);
+  });
+  return changes;
+}
+
+function remapLinkedIds_(rows, field, changes, result, tableName) {
+  if (!changes.length) return;
+  rows.forEach((row, index) => {
+    const oldValue = String(row[field] || "").trim();
+    if (!oldValue) return;
+    const change = matchingIdChange_(changes, oldValue, row);
+    if (!change) return;
+    row[field] = change.newId;
+    result.remappedLinks.push({
+      tableName,
+      rowIndex: index + 2,
+      field,
+      oldId: oldValue,
+      newId: change.newId
+    });
+  });
+}
+
+function matchingIdChange_(changes, oldId, row) {
+  const matches = changes.filter((change) => change.oldId === oldId);
+  if (!matches.length) return null;
+  const userKey = recordUserKey_(row);
+  if (userKey) {
+    const userMatch = matches.find((change) => change.userKey && change.userKey === userKey);
+    if (userMatch) return userMatch;
+  }
+  const ownerId = String(row.ownerId || "").trim();
+  if (ownerId) {
+    const ownerMatch = matches.find((change) => change.ownerId && change.ownerId === ownerId);
+    if (ownerMatch) return ownerMatch;
+  }
+  return null;
+}
+
+function uniqueRecordId_(prefix, usedIds) {
+  let id;
+  do {
+    id = String(prefix || "id").toLowerCase() + "-" + Utilities.getUuid();
+  } while (usedIds.has(id));
+  usedIds.add(id);
+  return id;
+}
+
+function recordUserKey_(row) {
+  return String(row.createdBy || row.updatedBy || row.responsible || row.assignedTo || row.user || "")
+    .trim()
+    .toLowerCase();
+}
+
 function allowedCanvasserIds_(user, users) {
   const role = String(user.role || "").toLowerCase();
   if (role.includes("admin")) {
@@ -331,12 +502,21 @@ function mergeScopedRows_(existingRows, incomingRows, canWrite, deletedIds) {
     if (id && canWrite(row) && !deleted.has(id)) map[id] = row;
     return map;
   }, {});
-  const nextRows = existingRows
-    .filter((row) => {
-      const id = String(row.id || "");
-      return !canWrite(row) || (!deleted.has(id) && !incomingById[id]);
-    })
-    .concat(Object.values(incomingById));
+  const usedIncomingIds = new Set();
+  const nextRows = existingRows.reduce((rows, row) => {
+    const id = String(row.id || "");
+    if (canWrite(row) && deleted.has(id)) return rows;
+    if (canWrite(row) && incomingById[id] && !usedIncomingIds.has(id)) {
+      rows.push(incomingById[id]);
+      usedIncomingIds.add(id);
+      return rows;
+    }
+    rows.push(row);
+    return rows;
+  }, []);
+  Object.keys(incomingById).forEach((id) => {
+    if (!usedIncomingIds.has(id)) nextRows.push(incomingById[id]);
+  });
   return nextRows;
 }
 

@@ -136,6 +136,24 @@ Sales are split into `Sales` and `SaleItems` so multiple product line items can 
 
 The `Users` sheet stores `username` as the last column so existing sheets can be upgraded without shifting password or role columns.
 
+## Duplicate ID Repair
+
+New records use globally unique IDs so different canvassers cannot create clashing farm, distributor, visit, sale, follow-up, or complaint IDs while working in scoped views.
+
+If an older database already contains duplicate IDs, first restore or back up the Google Sheet, then open Apps Script and run:
+
+```js
+duplicateIdReport();
+```
+
+If the report shows duplicates, run this once from the Apps Script editor:
+
+```js
+repairDuplicateRecordIds();
+```
+
+Do not use the public `?action=setup` URL for duplicate repair. `setup` is only for creating/upgrading headers and seeding users when the `Users` tab is empty.
+
 ## Notes
 
 - Use the deployed `/exec` URL, not the Apps Script `/dev` URL, for GitHub Pages.
