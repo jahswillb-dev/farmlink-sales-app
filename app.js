@@ -51,12 +51,12 @@ const lists = {
 const demoData = {
   currentUser: "Ada Okafor",
   users: [
-    { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active" },
-    { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active" },
-    { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active" },
-    { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active" },
-    { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active" },
-    { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active" }
+    { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active", whatsappPhone: "" },
+    { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active", whatsappPhone: "" },
+    { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active", whatsappPhone: "" },
+    { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active", whatsappPhone: "" },
+    { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active", whatsappPhone: "" },
+    { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active", whatsappPhone: "" }
   ],
   customers: [
     {
@@ -1645,7 +1645,7 @@ function renderReports() {
 
 function renderUsers() {
   if (!isSalesAdmin()) return emptyState("shield-alert", "User administration is for Sales Admin only.");
-  const users = filterByGlobal(state.users, (user) => `${user.name} ${user.email} ${user.username} ${user.role} ${user.territory} ${user.status}`);
+  const users = filterByGlobal(state.users, (user) => `${user.name} ${user.email} ${user.username} ${user.whatsappPhone} ${user.role} ${user.territory} ${user.status}`);
   return `
     <section class="page-head">
       <div>
@@ -1902,7 +1902,7 @@ function userTable(rows) {
               <strong class="truncate">${user.name}</strong>
               ${statusBadge(user.role)}
             </span>
-            <span class="customer-subline truncate">${user.username || "No username"} - ${user.email || "No email"}</span>
+            <span class="customer-subline truncate">${user.username || "No username"} - ${user.email || "No email"}${user.whatsappPhone ? ` - WhatsApp: +${user.whatsappPhone}` : ""}</span>
           </span>
           ${userColumn(user.managerId ? userName(user.managerId) : "None", user.id)}
           <span class="customer-meta">
@@ -2534,6 +2534,7 @@ function openUserModal(id = "") {
         ${input("name", "Full Name", user.name, true)}
         ${input("username", "Username", user.username, true)}
         ${input("email", "Email Address", user.email, true, "email")}
+        ${input("whatsappPhone", "WhatsApp Phone (Optional)", user.whatsappPhone || "", false, "tel", "placeholder=\"2348012345678\"")}
         ${selectField("role", "Role", ["Canvasser", "Area Manager", "Sales Admin"], user.role)}
         ${input("territory", "Region / Territory", user.territory)}
         ${managerSelectField("managerId", "Assigned Area Manager", user.managerId)}
@@ -2795,6 +2796,7 @@ async function saveUserAccount() {
     name: values.name.trim(),
     username: values.username.trim().toLowerCase(),
     email: values.email.trim().toLowerCase(),
+    whatsappPhone: normalizePhone(values.whatsappPhone),
     role: values.role,
     territory: values.territory.trim(),
     managerId: values.role === "Canvasser" ? values.managerId : "",
@@ -2818,7 +2820,7 @@ async function saveUserAccount() {
     return;
   }
   if (hasUserIdentityConflict(user)) {
-    toast("Another user already has that username or email");
+    toast("Another user already has that username, email, or WhatsApp phone number");
     return;
   }
 
@@ -2971,9 +2973,11 @@ async function persistUserDeletion(id) {
 function hasUserIdentityConflict(user) {
   const email = user.email.trim().toLowerCase();
   const username = user.username.trim().toLowerCase();
+  const whatsappPhone = normalizePhone(user.whatsappPhone);
   return state.users.some((item) => item.id !== user.id && (
     String(item.email || "").trim().toLowerCase() === email
     || String(item.username || "").trim().toLowerCase() === username
+    || (whatsappPhone && normalizePhone(item.whatsappPhone) === whatsappPhone)
   ));
 }
 
@@ -3576,6 +3580,13 @@ function formatTime(value) {
   return text;
 }
 
+function normalizePhone(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 11 && digits.startsWith("0")) return `234${digits.slice(1)}`;
+  return digits;
+}
+
 function timeFromSheetSerial(value) {
   const fraction = ((value % 1) + 1) % 1;
   return timeFromMinutes(Math.round(fraction * 24 * 60));
@@ -3748,6 +3759,7 @@ function blankUser() {
     name: "",
     email: "",
     username: "",
+    whatsappPhone: "",
     role: "Canvasser",
     territory: "",
     managerId: areaManagers()[0]?.id || "",

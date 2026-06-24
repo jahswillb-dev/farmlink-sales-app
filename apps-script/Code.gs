@@ -4,8 +4,9 @@ const TOKEN_TTL_DAYS = 14;
 const EVIDENCE_FOLDER_NAME = "FarmLink Complaint Evidence";
 
 const TABLES = {
-  Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status", "username"],
+  Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status", "username", "whatsappPhone"],
   AuthTokens: ["token", "userId", "createdAt", "expiresAt"],
+  BotSessions: ["phone", "userId", "flow", "step", "data", "updatedAt"],
   Customers: ["id", "farmName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "farmType", "birdType", "capacity", "stock", "pens", "stage", "feedConsumption", "feedBrand", "frequency", "supplier", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
   Distributors: ["id", "businessName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "distributorType", "coverageArea", "monthlyVolume", "brandsCarried", "warehouseCapacity", "deliveryFleet", "paymentTerms", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
   BirdDetails: ["id", "customerId", "birdType", "breed", "stage", "quantity", "pen", "age", "mortality", "feed", "notes"],
@@ -18,15 +19,18 @@ const TABLES = {
 };
 
 const DEFAULT_USERS = [
-  { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active" },
-  { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active" },
-  { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active" },
-  { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active" },
-  { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active" },
-  { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active" }
+  { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active", whatsappPhone: "" },
+  { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active", whatsappPhone: "" },
+  { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active", whatsappPhone: "" },
+  { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active", whatsappPhone: "" },
+  { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active", whatsappPhone: "" },
+  { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active", whatsappPhone: "" }
 ];
 
 function doGet(e) {
+  if (typeof isWhatsappVerificationRequest_ === "function" && isWhatsappVerificationRequest_(e)) {
+    return verifyWhatsappWebhook_(e);
+  }
   const action = (e.parameter.action || "ping").toLowerCase();
   try {
     if (action === "setup") {
@@ -45,6 +49,10 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData && e.postData.contents ? e.postData.contents : "{}");
     ensureSheets_();
+
+    if (typeof isWhatsappWebhook_ === "function" && isWhatsappWebhook_(body)) {
+      return json_(handleWhatsappWebhook_(body));
+    }
 
     if (body.action === "login") {
       return json_(login_(body.email, body.password, body.includeData !== false));
@@ -215,6 +223,7 @@ function saveUser_(data, actor) {
   const status = String(data.status || "Active").trim() === "Inactive" ? "Inactive" : "Active";
   const territory = String(data.territory || "").trim();
   const managerId = role === "Canvasser" ? String(data.managerId || "").trim() : "";
+  const whatsappPhone = normalizePhoneInput_(data.whatsappPhone);
   const password = String(data.password || "");
 
   if (!name) throw new Error("User name is required");
@@ -232,8 +241,9 @@ function saveUser_(data, actor) {
   const duplicate = users.find((user) => user.id !== id && (
     String(user.email || "").trim().toLowerCase() === cleanEmail
     || String(user.username || "").trim().toLowerCase() === cleanUsername
+    || (whatsappPhone && normalizePhoneInput_(user.whatsappPhone) === whatsappPhone)
   ));
-  if (duplicate) throw new Error("Another user already has that username or email");
+  if (duplicate) throw new Error("Another user already has that username, email, or WhatsApp phone number");
   if (!password && !existing) throw new Error("Temporary password is required for new users");
 
   const row = {
@@ -245,7 +255,8 @@ function saveUser_(data, actor) {
     territory,
     managerId,
     status,
-    username: cleanUsername
+    username: cleanUsername,
+    whatsappPhone
   };
   if (existingIndex >= 0) users[existingIndex] = row;
   else users.push(row);
@@ -740,15 +751,17 @@ function setUserPassword(email, newPassword) {
   writeTable_("Users", users);
 }
 
-function upsertUserAccount(id, name, email, password, role, territory, managerId, status, username) {
+function upsertUserAccount(id, name, email, password, role, territory, managerId, status, username, whatsappPhone) {
   ensureSheets_();
   const users = readTable_("Users");
   const cleanEmail = String(email || "").trim().toLowerCase();
   const cleanUsername = String(username || usernameFromEmail_(email)).trim().toLowerCase();
+  const cleanWhatsappPhone = normalizePhoneInput_(whatsappPhone);
   const index = users.findIndex((user) =>
     user.id === id
     || String(user.email || "").trim().toLowerCase() === cleanEmail
     || String(user.username || "").trim().toLowerCase() === cleanUsername
+    || (cleanWhatsappPhone && normalizePhoneInput_(user.whatsappPhone) === cleanWhatsappPhone)
   );
   const row = {
     id,
@@ -759,7 +772,8 @@ function upsertUserAccount(id, name, email, password, role, territory, managerId
     territory,
     managerId: managerId || "",
     status: status || "Active",
-    username: cleanUsername
+    username: cleanUsername,
+    whatsappPhone: cleanWhatsappPhone
   };
   if (index >= 0) users[index] = row;
   else users.push(row);
@@ -768,6 +782,13 @@ function upsertUserAccount(id, name, email, password, role, territory, managerId
 
 function usernameFromEmail_(email) {
   return String(email || "").split("@")[0].replace(/[^a-zA-Z0-9._-]/g, "").toLowerCase();
+}
+
+function normalizePhoneInput_(phone) {
+  const digits = String(phone || "").replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length === 11 && digits.charAt(0) === "0") return "234" + digits.slice(1);
+  return digits;
 }
 
 function hashPassword_(password) {

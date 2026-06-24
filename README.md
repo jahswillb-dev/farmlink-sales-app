@@ -45,9 +45,80 @@ Only Sales Admin users can open the backend status panel and Users page in the a
 - Canvasser accounts must be assigned to an Area Manager.
 - Sales Admin users can activate and deactivate user accounts.
 - Sales Admin users can permanently delete user accounts from the `Users` sheet.
+- Sales Admin users can add each user's WhatsApp phone number so the WhatsApp bot can identify the user and apply the same role permissions.
 - New passwords and password resets are sent to Apps Script and stored as SHA-256 hashes in the `Users` sheet.
 - A Sales Admin cannot deactivate or remove Sales Admin access from their own account.
 - A user cannot be deleted while they still own farms/distributors or manage assigned canvassers.
+
+## WhatsApp Bot
+
+The WhatsApp bot lets field users submit and retrieve FarmLink records from WhatsApp while the web app remains the main dashboard. The bot uses the same Google Sheets database, the same role scope, and the same Drive folder for complaint evidence.
+
+Supported WhatsApp actions:
+
+- Add farms.
+- Add distributors.
+- Record visits with mandatory GPS location.
+- Add follow-ups.
+- Record sales in Naira.
+- Add complaints with multiple photo/video evidence files.
+- Search farms/distributors by name, phone, town, or record ID.
+- View pending follow-ups and a role-scoped summary.
+- Void records from WhatsApp.
+- Permanently delete records from WhatsApp only when the sender is a Sales Admin.
+
+### WhatsApp Bot Setup
+
+1. In Apps Script, keep the existing `Code.gs` file updated with `apps-script/Code.gs`.
+2. Create another Apps Script file named `WhatsAppBot.gs`.
+3. Paste the contents of `apps-script/WhatsAppBot.gs` into that new file.
+4. Save the Apps Script project.
+5. Deploy the Apps Script web app again with:
+   - **Execute as:** Me
+   - **Who has access:** Anyone
+6. Visit the Web App URL with `?action=setup` once so the new `BotSessions` sheet and `whatsappPhone` user column are created.
+7. In Apps Script, run this function once from the editor:
+
+```js
+setupWhatsAppBot(
+  "choose-a-private-verify-token",
+  "YOUR_META_WHATSAPP_ACCESS_TOKEN",
+  "YOUR_META_PHONE_NUMBER_ID",
+  "v23.0"
+);
+```
+
+8. In the FarmLink web app, log in as Sales Admin and open **Users & Access**.
+9. Edit each user and enter their WhatsApp phone in international format without `+`.
+   Example: `2348012345678`.
+10. In Meta for Developers, open your WhatsApp app and configure the webhook:
+    - **Callback URL:** your Apps Script `/exec` web app URL.
+    - **Verify token:** the same private verify token used in `setupWhatsAppBot`.
+    - Subscribe to WhatsApp `messages` webhook events.
+11. Send `MENU` from a linked WhatsApp number to the connected WhatsApp Business number.
+
+Useful test messages:
+
+```text
+MENU
+1
+SEARCH golden
+8
+9
+VOID visit v-your-record-id
+DELETE sale s-your-record-id
+```
+
+Notes:
+
+- The bot identifies users by the `whatsappPhone` value in the `Users` sheet.
+- Canvassers only see their own farms, distributors, visits, follow-ups, sales, and complaints.
+- Area Managers see canvassers assigned to them.
+- Sales Admins see all records.
+- Area Managers and Sales Admins must specify the assigned canvasser when creating a farm or distributor through WhatsApp.
+- WhatsApp location messages are accepted as mandatory GPS tags, but WhatsApp may not provide a true accuracy meter reading. The web app remains better for strict GPS calibration.
+- The bot is text-first for low-data field use. Photo/video evidence can use more data.
+- Meta's WhatsApp Cloud API requires a valid access token and webhook configuration. For production, use a permanent system-user access token from Meta Business settings.
 
 ## Delete And Void Rules
 
@@ -108,7 +179,8 @@ upsertUserAccount(
   "New Territory",
   "u3",
   "Active",
-  "newcanvasser"
+  "newcanvasser",
+  "2348012345678"
 );
 ```
 
@@ -120,6 +192,7 @@ The Apps Script backend creates these tabs:
 
 - `Users`
 - `AuthTokens`
+- `BotSessions`
 - `Customers` - farm master records, kept under this sheet name for backend compatibility
 - `Distributors`
 - `BirdDetails`
@@ -134,7 +207,9 @@ Farms and distributors are stored in separate master tabs. Shared activity tabs 
 
 Sales are split into `Sales` and `SaleItems` so multiple product line items can be stored cleanly.
 
-The `Users` sheet stores `username` as the last column so existing sheets can be upgraded without shifting password or role columns.
+The `Users` sheet stores `username` and `whatsappPhone` at the end so existing sheets can be upgraded without shifting password or role columns.
+
+The `BotSessions` sheet stores temporary WhatsApp form progress, such as which field a canvasser is currently answering. It is not the permanent record database.
 
 ## Duplicate ID Repair
 
