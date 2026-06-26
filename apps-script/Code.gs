@@ -4,9 +4,10 @@ const TOKEN_TTL_DAYS = 14;
 const EVIDENCE_FOLDER_NAME = "FarmLink Complaint Evidence";
 
 const TABLES = {
-  Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status", "username", "whatsappPhone"],
+  Users: ["id", "name", "email", "passwordHash", "role", "territory", "managerId", "status", "username", "whatsappPhone", "telegramChatId", "telegramUsername"],
   AuthTokens: ["token", "userId", "createdAt", "expiresAt"],
   BotSessions: ["phone", "userId", "flow", "step", "data", "updatedAt"],
+  TelegramSessions: ["chatId", "userId", "flow", "step", "data", "updatedAt"],
   Customers: ["id", "farmName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "farmType", "birdType", "capacity", "stock", "pens", "stage", "feedConsumption", "feedBrand", "frequency", "supplier", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
   Distributors: ["id", "businessName", "contact", "phone", "altPhone", "email", "address", "state", "lga", "town", "category", "distributorType", "coverageArea", "monthlyVolume", "brandsCarried", "warehouseCapacity", "deliveryFleet", "paymentTerms", "notes", "lat", "lng", "accuracy", "ownerId", "createdBy", "createdAt", "updatedBy", "updatedAt", "voided", "voidedBy", "voidedAt"],
   BirdDetails: ["id", "customerId", "birdType", "breed", "stage", "quantity", "pen", "age", "mortality", "feed", "notes"],
@@ -19,12 +20,12 @@ const TABLES = {
 };
 
 const DEFAULT_USERS = [
-  { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active", whatsappPhone: "" },
-  { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active", whatsappPhone: "" },
-  { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active", whatsappPhone: "" },
-  { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active", whatsappPhone: "" },
-  { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active", whatsappPhone: "" },
-  { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active", whatsappPhone: "" }
+  { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+  { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+  { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+  { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+  { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+  { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" }
 ];
 
 function doGet(e) {
@@ -49,6 +50,10 @@ function doPost(e) {
   try {
     const body = JSON.parse(e.postData && e.postData.contents ? e.postData.contents : "{}");
     ensureSheets_();
+
+    if (typeof isTelegramWebhook_ === "function" && isTelegramWebhook_(body, e)) {
+      return json_(handleTelegramWebhook_(body, e));
+    }
 
     if (typeof isWhatsappWebhook_ === "function" && isWhatsappWebhook_(body)) {
       return json_(handleWhatsappWebhook_(body));
@@ -224,6 +229,8 @@ function saveUser_(data, actor) {
   const territory = String(data.territory || "").trim();
   const managerId = role === "Canvasser" ? String(data.managerId || "").trim() : "";
   const whatsappPhone = normalizePhoneInput_(data.whatsappPhone);
+  const telegramChatId = normalizeTelegramChatId_(data.telegramChatId);
+  const telegramUsername = normalizeTelegramUsername_(data.telegramUsername);
   const password = String(data.password || "");
 
   if (!name) throw new Error("User name is required");
@@ -242,8 +249,10 @@ function saveUser_(data, actor) {
     String(user.email || "").trim().toLowerCase() === cleanEmail
     || String(user.username || "").trim().toLowerCase() === cleanUsername
     || (whatsappPhone && normalizePhoneInput_(user.whatsappPhone) === whatsappPhone)
+    || (telegramChatId && normalizeTelegramChatId_(user.telegramChatId) === telegramChatId)
+    || (telegramUsername && normalizeTelegramUsername_(user.telegramUsername) === telegramUsername)
   ));
-  if (duplicate) throw new Error("Another user already has that username, email, or WhatsApp phone number");
+  if (duplicate) throw new Error("Another user already has that username, email, WhatsApp phone, or Telegram identity");
   if (!password && !existing) throw new Error("Temporary password is required for new users");
 
   const row = {
@@ -256,7 +265,9 @@ function saveUser_(data, actor) {
     managerId,
     status,
     username: cleanUsername,
-    whatsappPhone
+    whatsappPhone,
+    telegramChatId,
+    telegramUsername
   };
   if (existingIndex >= 0) users[existingIndex] = row;
   else users.push(row);
@@ -751,17 +762,21 @@ function setUserPassword(email, newPassword) {
   writeTable_("Users", users);
 }
 
-function upsertUserAccount(id, name, email, password, role, territory, managerId, status, username, whatsappPhone) {
+function upsertUserAccount(id, name, email, password, role, territory, managerId, status, username, whatsappPhone, telegramChatId, telegramUsername) {
   ensureSheets_();
   const users = readTable_("Users");
   const cleanEmail = String(email || "").trim().toLowerCase();
   const cleanUsername = String(username || usernameFromEmail_(email)).trim().toLowerCase();
   const cleanWhatsappPhone = normalizePhoneInput_(whatsappPhone);
+  const cleanTelegramChatId = normalizeTelegramChatId_(telegramChatId);
+  const cleanTelegramUsername = normalizeTelegramUsername_(telegramUsername);
   const index = users.findIndex((user) =>
     user.id === id
     || String(user.email || "").trim().toLowerCase() === cleanEmail
     || String(user.username || "").trim().toLowerCase() === cleanUsername
     || (cleanWhatsappPhone && normalizePhoneInput_(user.whatsappPhone) === cleanWhatsappPhone)
+    || (cleanTelegramChatId && normalizeTelegramChatId_(user.telegramChatId) === cleanTelegramChatId)
+    || (cleanTelegramUsername && normalizeTelegramUsername_(user.telegramUsername) === cleanTelegramUsername)
   );
   const row = {
     id,
@@ -773,7 +788,9 @@ function upsertUserAccount(id, name, email, password, role, territory, managerId
     managerId: managerId || "",
     status: status || "Active",
     username: cleanUsername,
-    whatsappPhone: cleanWhatsappPhone
+    whatsappPhone: cleanWhatsappPhone,
+    telegramChatId: cleanTelegramChatId,
+    telegramUsername: cleanTelegramUsername
   };
   if (index >= 0) users[index] = row;
   else users.push(row);
@@ -789,6 +806,14 @@ function normalizePhoneInput_(phone) {
   if (!digits) return "";
   if (digits.length === 11 && digits.charAt(0) === "0") return "234" + digits.slice(1);
   return digits;
+}
+
+function normalizeTelegramChatId_(value) {
+  return String(value || "").trim().replace(/[^\d-]/g, "");
+}
+
+function normalizeTelegramUsername_(value) {
+  return String(value || "").trim().replace(/^@+/, "").toLowerCase();
 }
 
 function hashPassword_(password) {

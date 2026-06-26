@@ -51,12 +51,12 @@ const lists = {
 const demoData = {
   currentUser: "Ada Okafor",
   users: [
-    { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active", whatsappPhone: "" },
-    { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active", whatsappPhone: "" },
-    { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active", whatsappPhone: "" },
-    { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active", whatsappPhone: "" },
-    { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active", whatsappPhone: "" },
-    { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active", whatsappPhone: "" }
+    { id: "u1", name: "Ada Okafor", email: "ada@farmlink.local", username: "ada", role: "Canvasser", territory: "Ibadan North", managerId: "u3", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+    { id: "u2", name: "Tunde Balogun", email: "tunde@farmlink.local", username: "tunde", role: "Canvasser", territory: "Akinyele", managerId: "u3", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+    { id: "u3", name: "Miriam Yusuf", email: "miriam@farmlink.local", username: "miriam", role: "Area Manager", territory: "Oyo Central", managerId: "", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+    { id: "u4", name: "Bola Nwosu", email: "bola@farmlink.local", username: "bola", role: "Canvasser", territory: "Abeokuta East", managerId: "u6", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+    { id: "u5", name: "Chidi Nnamdi", email: "admin@farmlink.local", username: "admin", role: "Sales Admin", territory: "Back Office", managerId: "", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" },
+    { id: "u6", name: "Grace Bello", email: "grace@farmlink.local", username: "grace", role: "Area Manager", territory: "Ogun Region", managerId: "", status: "Active", whatsappPhone: "", telegramChatId: "", telegramUsername: "" }
   ],
   customers: [
     {
@@ -1645,7 +1645,7 @@ function renderReports() {
 
 function renderUsers() {
   if (!isSalesAdmin()) return emptyState("shield-alert", "User administration is for Sales Admin only.");
-  const users = filterByGlobal(state.users, (user) => `${user.name} ${user.email} ${user.username} ${user.whatsappPhone} ${user.role} ${user.territory} ${user.status}`);
+  const users = filterByGlobal(state.users, (user) => `${user.name} ${user.email} ${user.username} ${user.whatsappPhone} ${user.telegramChatId} ${user.telegramUsername} ${user.role} ${user.territory} ${user.status}`);
   return `
     <section class="page-head">
       <div>
@@ -1902,7 +1902,7 @@ function userTable(rows) {
               <strong class="truncate">${user.name}</strong>
               ${statusBadge(user.role)}
             </span>
-            <span class="customer-subline truncate">${user.username || "No username"} - ${user.email || "No email"}${user.whatsappPhone ? ` - WhatsApp: +${user.whatsappPhone}` : ""}</span>
+            <span class="customer-subline truncate">${user.username || "No username"} - ${user.email || "No email"}${user.whatsappPhone ? ` - WhatsApp: +${user.whatsappPhone}` : ""}${user.telegramChatId ? ` - Telegram: ${user.telegramChatId}` : ""}</span>
           </span>
           ${userColumn(user.managerId ? userName(user.managerId) : "None", user.id)}
           <span class="customer-meta">
@@ -2535,6 +2535,8 @@ function openUserModal(id = "") {
         ${input("username", "Username", user.username, true)}
         ${input("email", "Email Address", user.email, true, "email")}
         ${input("whatsappPhone", "WhatsApp Phone (Optional)", user.whatsappPhone || "", false, "tel", "placeholder=\"2348012345678\"")}
+        ${input("telegramChatId", "Telegram Chat ID (Optional)", user.telegramChatId || "", false, "text", "placeholder=\"123456789\"")}
+        ${input("telegramUsername", "Telegram Username (Optional)", user.telegramUsername || "", false, "text", "placeholder=\"farmlink_user\"")}
         ${selectField("role", "Role", ["Canvasser", "Area Manager", "Sales Admin"], user.role)}
         ${input("territory", "Region / Territory", user.territory)}
         ${managerSelectField("managerId", "Assigned Area Manager", user.managerId)}
@@ -2797,6 +2799,8 @@ async function saveUserAccount() {
     username: values.username.trim().toLowerCase(),
     email: values.email.trim().toLowerCase(),
     whatsappPhone: normalizePhone(values.whatsappPhone),
+    telegramChatId: normalizeTelegramChatId(values.telegramChatId),
+    telegramUsername: normalizeTelegramUsername(values.telegramUsername),
     role: values.role,
     territory: values.territory.trim(),
     managerId: values.role === "Canvasser" ? values.managerId : "",
@@ -2820,7 +2824,7 @@ async function saveUserAccount() {
     return;
   }
   if (hasUserIdentityConflict(user)) {
-    toast("Another user already has that username, email, or WhatsApp phone number");
+    toast("Another user already has that username, email, WhatsApp phone, or Telegram identity");
     return;
   }
 
@@ -2974,10 +2978,14 @@ function hasUserIdentityConflict(user) {
   const email = user.email.trim().toLowerCase();
   const username = user.username.trim().toLowerCase();
   const whatsappPhone = normalizePhone(user.whatsappPhone);
+  const telegramChatId = normalizeTelegramChatId(user.telegramChatId);
+  const telegramUsername = normalizeTelegramUsername(user.telegramUsername);
   return state.users.some((item) => item.id !== user.id && (
     String(item.email || "").trim().toLowerCase() === email
     || String(item.username || "").trim().toLowerCase() === username
     || (whatsappPhone && normalizePhone(item.whatsappPhone) === whatsappPhone)
+    || (telegramChatId && normalizeTelegramChatId(item.telegramChatId) === telegramChatId)
+    || (telegramUsername && normalizeTelegramUsername(item.telegramUsername) === telegramUsername)
   ));
 }
 
@@ -3587,6 +3595,14 @@ function normalizePhone(phone) {
   return digits;
 }
 
+function normalizeTelegramChatId(value) {
+  return String(value || "").trim().replace(/[^\d-]/g, "");
+}
+
+function normalizeTelegramUsername(value) {
+  return String(value || "").trim().replace(/^@+/, "").toLowerCase();
+}
+
 function timeFromSheetSerial(value) {
   const fraction = ((value % 1) + 1) % 1;
   return timeFromMinutes(Math.round(fraction * 24 * 60));
@@ -3760,6 +3776,8 @@ function blankUser() {
     email: "",
     username: "",
     whatsappPhone: "",
+    telegramChatId: "",
+    telegramUsername: "",
     role: "Canvasser",
     territory: "",
     managerId: areaManagers()[0]?.id || "",

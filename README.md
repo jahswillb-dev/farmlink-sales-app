@@ -46,9 +46,96 @@ Only Sales Admin users can open the backend status panel and Users page in the a
 - Sales Admin users can activate and deactivate user accounts.
 - Sales Admin users can permanently delete user accounts from the `Users` sheet.
 - Sales Admin users can add each user's WhatsApp phone number so the WhatsApp bot can identify the user and apply the same role permissions.
+- Sales Admin users can add each user's Telegram Chat ID so the Telegram bot can identify the user and apply the same role permissions.
 - New passwords and password resets are sent to Apps Script and stored as SHA-256 hashes in the `Users` sheet.
 - A Sales Admin cannot deactivate or remove Sales Admin access from their own account.
 - A user cannot be deleted while they still own farms/distributors or manage assigned canvassers.
+
+## Telegram Bot
+
+The Telegram bot is the recommended pilot bot because it does not require Meta business verification. It connects directly to Apps Script and writes into the same Google Sheets database used by the web app.
+
+Supported Telegram actions:
+
+- Add farms.
+- Add distributors.
+- Record visits with mandatory GPS location.
+- Add follow-ups.
+- Record sales in Naira.
+- Add complaints with multiple photo/video evidence files.
+- Search farms/distributors by name, phone, town, or record ID.
+- View pending follow-ups and a role-scoped summary.
+- Void records from Telegram.
+- Permanently delete records from Telegram only when the sender is a Sales Admin.
+
+### Telegram Bot Setup
+
+1. Open Telegram and search for `@BotFather`.
+2. Send:
+
+```text
+/newbot
+```
+
+3. Follow BotFather's prompts and create a bot name and bot username.
+4. Copy the bot token BotFather gives you.
+5. In Apps Script, keep the existing `Code.gs` file updated with `apps-script/Code.gs`.
+6. Create another Apps Script file named `TelegramBot.gs`.
+7. Paste the contents of `apps-script/TelegramBot.gs` into that new file.
+8. Save the Apps Script project.
+9. Deploy the Apps Script web app again with:
+   - **Execute as:** Me
+   - **Who has access:** Anyone
+10. Visit the Web App URL with `?action=setup` once so the new `TelegramSessions`, `telegramChatId`, and `telegramUsername` fields are created.
+11. In Apps Script, run this function once from the editor:
+
+```js
+setupTelegramBot(
+  "PASTE_TELEGRAM_BOT_TOKEN_HERE",
+  "https://script.google.com/macros/s/YOUR_DEPLOYMENT_ID/exec",
+  "farmlink_telegram_secret"
+);
+```
+
+12. Open Telegram and send this to your bot:
+
+```text
+/start
+```
+
+13. The bot will reply with your Telegram Chat ID and username.
+14. In the FarmLink web app, log in as Sales Admin and open **Users & Access**.
+15. Edit the user account and paste the Telegram Chat ID into **Telegram Chat ID**.
+16. Save the user.
+17. Send this to the Telegram bot:
+
+```text
+/menu
+```
+
+Useful Telegram messages:
+
+```text
+/start
+/menu
+/id
+1
+SEARCH golden
+8
+9
+VOID visit v-your-record-id
+DELETE sale s-your-record-id
+```
+
+Notes:
+
+- The bot identifies users by the `telegramChatId` value in the `Users` sheet.
+- Canvassers only see their own farms, distributors, visits, follow-ups, sales, and complaints.
+- Area Managers see canvassers assigned to them.
+- Sales Admins see all records.
+- Area Managers and Sales Admins must specify the assigned canvasser when creating a farm or distributor through Telegram.
+- Telegram location messages are accepted as mandatory GPS tags.
+- Photo and video evidence are uploaded to the existing `FarmLink Complaint Evidence` Google Drive folder.
 
 ## WhatsApp Bot
 
@@ -180,7 +267,9 @@ upsertUserAccount(
   "u3",
   "Active",
   "newcanvasser",
-  "2348012345678"
+  "2348012345678",
+  "123456789",
+  "newcanvasser_telegram"
 );
 ```
 
@@ -193,6 +282,7 @@ The Apps Script backend creates these tabs:
 - `Users`
 - `AuthTokens`
 - `BotSessions`
+- `TelegramSessions`
 - `Customers` - farm master records, kept under this sheet name for backend compatibility
 - `Distributors`
 - `BirdDetails`
@@ -207,9 +297,11 @@ Farms and distributors are stored in separate master tabs. Shared activity tabs 
 
 Sales are split into `Sales` and `SaleItems` so multiple product line items can be stored cleanly.
 
-The `Users` sheet stores `username` and `whatsappPhone` at the end so existing sheets can be upgraded without shifting password or role columns.
+The `Users` sheet stores `username`, `whatsappPhone`, `telegramChatId`, and `telegramUsername` at the end so existing sheets can be upgraded without shifting password or role columns.
 
 The `BotSessions` sheet stores temporary WhatsApp form progress, such as which field a canvasser is currently answering. It is not the permanent record database.
+
+The `TelegramSessions` sheet stores temporary Telegram form progress, such as which field a canvasser is currently answering. It is not the permanent record database.
 
 ## Duplicate ID Repair
 
